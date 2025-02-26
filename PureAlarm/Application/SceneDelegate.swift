@@ -18,9 +18,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
         guard let windowScene = (scene as? UIWindowScene) else { return }
         
+        // 초기 뷰 컨트롤러 설정
+        let rootViewController = AlarmListViewController()
+        
+        // 윈도우 설정
         window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = AlarmListViewController()
+        window?.rootViewController = rootViewController
         window?.makeKeyAndVisible()
+        window?.tintColor = .orange
+        window?.backgroundColor = .black
         
     }
     
