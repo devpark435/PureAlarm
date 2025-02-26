@@ -154,6 +154,8 @@ final class AlarmListViewController: UIViewController {
     // MARK: - Actions
     @objc private func addButtonTapped() {
         // TODO: 디테일 화면 이동 코드 추가
+        let detailVC = AlarmDetailViewController()
+        present(detailVC, animated: true)
     }
 }
 
@@ -179,5 +181,7 @@ extension AlarmListViewController: UICollectionViewDataSource, UICollectionViewD
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         // TODO: 디테일 화면 이동 코드 추가
+        let detailVC = AlarmDetailViewController(isEditMode: true)
+        present(detailVC, animated: true)
     }
 }
