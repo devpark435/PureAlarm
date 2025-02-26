@@ -26,18 +26,16 @@ final class AlarmListViewController: UIViewController {
     }
     
     private let titleLabel = UILabel().then {
-        $0.text = "수면 관리"
+        $0.text = "알람"
         $0.textColor = .white
         $0.font = .systemFont(ofSize: 28, weight: .bold)
     }
     
     private let subtitleLabel = UILabel().then {
-        $0.text = "규칙적인 수면 습관이 건강한 하루를 만듭니다"
+        $0.text = "규칙적인 알람으로 하루를 시작하세요"
         $0.textColor = UIColor(white: 0.7, alpha: 1.0)
         $0.font = .systemFont(ofSize: 14)
     }
-    
-    private let sleepSummaryCard = SleepSummaryCardView()
     
     private lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
@@ -65,6 +63,7 @@ final class AlarmListViewController: UIViewController {
         super.viewDidLoad()
         configureUI()
         setupDummyData()
+        setupButtonActions()
     }
     
     // MARK: - UI Configuration
@@ -74,7 +73,7 @@ final class AlarmListViewController: UIViewController {
             $0.edges.equalToSuperview()
         }
         
-        view.addSubviews(headerView, sleepSummaryCard, collectionView, addButton)
+        view.addSubviews(headerView, collectionView, addButton)
         headerView.addSubviews(titleLabel, subtitleLabel)
         
         headerView.snp.makeConstraints {
@@ -93,15 +92,8 @@ final class AlarmListViewController: UIViewController {
             $0.leading.equalTo(titleLabel)
         }
         
-        sleepSummaryCard.snp.makeConstraints {
-            $0.top.equalTo(headerView.snp.bottom)
-            $0.leading.equalToSuperview().offset(20)
-            $0.trailing.equalToSuperview().offset(-20)
-            $0.height.equalTo(140)
-        }
-        
         collectionView.snp.makeConstraints {
-            $0.top.equalTo(sleepSummaryCard.snp.bottom).offset(20)
+            $0.top.equalTo(headerView.snp.bottom)
             $0.leading.trailing.equalToSuperview()
             $0.bottom.equalToSuperview()
         }
@@ -111,6 +103,11 @@ final class AlarmListViewController: UIViewController {
             $0.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-20)
             $0.size.equalTo(60)
         }
+    }
+    
+    private func setupButtonActions() {
+        // 버튼 액션 설정
+        addButton.addTarget(self, action: #selector(addButtonTapped), for: .touchUpInside)
     }
     
     // MARK: - Data Setup
@@ -153,7 +150,6 @@ final class AlarmListViewController: UIViewController {
     
     // MARK: - Actions
     @objc private func addButtonTapped() {
-        // TODO: 디테일 화면 이동 코드 추가
         let detailVC = AlarmDetailViewController()
         present(detailVC, animated: true)
     }
@@ -180,7 +176,6 @@ extension AlarmListViewController: UICollectionViewDataSource, UICollectionViewD
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        // TODO: 디테일 화면 이동 코드 추가
         let detailVC = AlarmDetailViewController(isEditMode: true)
         present(detailVC, animated: true)
     }
