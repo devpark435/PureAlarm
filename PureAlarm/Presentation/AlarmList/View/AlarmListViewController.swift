@@ -11,6 +11,7 @@ import Then
 
 final class AlarmListViewController: UIViewController {
     // MARK: - Properties
+    private let viewModel = AlarmListViewModel()
     private var alarms: [Alarm] = []
     
     // MARK: - UI Components
@@ -54,16 +55,24 @@ final class AlarmListViewController: UIViewController {
         return collectionView
     }()
     
-    private lazy var addButton = CircleButton().then {
-        $0.addTarget(self, action: #selector(addButtonTapped), for: .touchUpInside)
+    private let addButton = CircleButton()
+    
+    private let loadingIndicator = UIActivityIndicatorView(style: .large).then {
+        $0.color = .white
+        $0.hidesWhenStopped = true
     }
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         configureUI()
-        setupDummyData()
+        bindViewModel()
         setupButtonActions()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        viewModel.fetchAlarms()
     }
     
     // MARK: - UI Configuration
@@ -73,7 +82,7 @@ final class AlarmListViewController: UIViewController {
             $0.edges.equalToSuperview()
         }
         
-        view.addSubviews(headerView, collectionView, addButton)
+        view.addSubviews(headerView, collectionView, addButton, loadingIndicator)
         headerView.addSubviews(titleLabel, subtitleLabel)
         
         headerView.snp.makeConstraints {
@@ -103,54 +112,70 @@ final class AlarmListViewController: UIViewController {
             $0.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-20)
             $0.size.equalTo(60)
         }
+        
+        loadingIndicator.snp.makeConstraints {
+            $0.center.equalToSuperview()
+        }
     }
     
     private func setupButtonActions() {
-        // 버튼 액션 설정
         addButton.addTarget(self, action: #selector(addButtonTapped), for: .touchUpInside)
     }
     
-    // MARK: - Data Setup
-    private func setupDummyData() {
-        // 임시 데이터로 테스트
-        let calendar = Calendar.current
-        var dateComponents = DateComponents()
-        dateComponents.hour = 7
-        dateComponents.minute = 30
+    // MARK: - ViewModel Binding
+    private func bindViewModel() {
+        viewModel.alarmsBinding = { [weak self] alarms in
+            guard let self = self else { return }
+            self.alarms = alarms
+            self.collectionView.reloadData()
+            
+            // 알람이 없을 때와 있을 때 UI 상태 설정
+            if alarms.isEmpty {
+                self.showEmptyState()
+            } else {
+                self.hideEmptyState()
+            }
+        }
         
-        let morningAlarm = Alarm(
-            title: "기상 시간",
-            time: calendar.date(from: dateComponents) ?? Date(),
-            days: [.monday, .tuesday, .wednesday, .thursday, .friday],
-            color: UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
-        )
+        viewModel.loadingBinding = { [weak self] isLoading in
+            guard let self = self else { return }
+            if isLoading {
+                self.loadingIndicator.startAnimating()
+            } else {
+                self.loadingIndicator.stopAnimating()
+            }
+        }
         
-        dateComponents.hour = 22
-        dateComponents.minute = 30
-        
-        let nightAlarm = Alarm(
-            title: "취침 준비",
-            time: calendar.date(from: dateComponents) ?? Date(),
-            days: [.monday, .tuesday, .wednesday, .thursday, .friday, .saturday, .sunday],
-            color: UIColor(red: 0.6, green: 0.2, blue: 0.8, alpha: 1.0)
-        )
-        
-        dateComponents.hour = 9
-        dateComponents.minute = 0
-        
-        let weekendAlarm = Alarm(
-            title: "주말 기상",
-            time: calendar.date(from: dateComponents) ?? Date(),
-            days: [.saturday, .sunday],
-            color: UIColor(red: 1.0, green: 0.5, blue: 0.3, alpha: 1.0)
-        )
-        
-        alarms = [morningAlarm, nightAlarm, weekendAlarm]
+        viewModel.errorBinding = { [weak self] error in
+            guard let self = self else { return }
+            self.showErrorAlert(message: error)
+        }
+    }
+    
+    // MARK: - Helper Methods
+    private func showEmptyState() {
+        // 알람이 없을 때 표시할 UI (예: 안내 메시지 등)
+    }
+    
+    private func hideEmptyState() {
+        // 알람이 있을 때 빈 상태 UI 숨기기
+    }
+    
+    private func showErrorAlert(message: String) {
+        let alert = UIAlertController(title: "알림", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "확인", style: .default))
+        present(alert, animated: true)
     }
     
     // MARK: - Actions
     @objc private func addButtonTapped() {
-        let detailVC = AlarmDetailViewController()
+        let detailViewModel = AlarmDetailViewModel()
+        let detailVC = AlarmDetailViewController(viewModel: detailViewModel)
+        
+        detailViewModel.alarmSavedHandler = { [weak self] alarm in
+            self?.viewModel.addAlarm(alarm)
+        }
+        
         present(detailVC, animated: true)
     }
 }
@@ -168,15 +193,30 @@ extension AlarmListViewController: UICollectionViewDataSource, UICollectionViewD
         
         let alarm = alarms[indexPath.item]
         cell.configure(with: alarm)
-        cell.toggleHandler = { isOn in
-            print("알람 상태 변경: \(isOn)")
+        
+        // 알람의 ID를 사용하여 올바른 알람 토글
+        cell.toggleHandler = { [weak self, alarm] isOn in
+            // 뷰모델 업데이트 (ID로 알람 찾기)
+            self?.viewModel.toggleAlarmWithId(alarm.id, isActive: isOn)
         }
         
         return cell
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let detailVC = AlarmDetailViewController(isEditMode: true)
+        guard let alarm = viewModel.getAlarm(at: indexPath.item) else { return }
+        
+        let detailViewModel = AlarmDetailViewModel(alarm: alarm)
+        let detailVC = AlarmDetailViewController(viewModel: detailViewModel)
+        
+        detailViewModel.alarmSavedHandler = { [weak self] updatedAlarm in
+            self?.viewModel.updateAlarm(updatedAlarm)
+        }
+        
+        detailViewModel.alarmDeletedHandler = { [weak self] in
+            self?.viewModel.deleteAlarm(at: indexPath.item)
+        }
+        
         present(detailVC, animated: true)
     }
 }

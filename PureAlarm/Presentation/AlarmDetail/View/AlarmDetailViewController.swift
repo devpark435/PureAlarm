@@ -12,7 +12,7 @@ import Then
 final class AlarmDetailViewController: UIViewController {
     
     // MARK: - Properties
-    private var isEditMode: Bool = false
+    private let viewModel: AlarmDetailViewModel
     private var selectedDays: [WeekDay] = []
     private var selectedColor: UIColor = UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
     
@@ -84,7 +84,6 @@ final class AlarmDetailViewController: UIViewController {
         button.backgroundColor = UIColor(white: 0.2, alpha: 1.0)
         button.layer.cornerRadius = 15
         button.tag = day.rawValue
-        button.addTarget(self, action: #selector(dayButtonTapped(_:)), for: .touchUpInside)
         return button
     }
     
@@ -109,13 +108,6 @@ final class AlarmDetailViewController: UIViewController {
         button.backgroundColor = color
         button.layer.cornerRadius = 15
         button.tag = index
-        button.addTarget(self, action: #selector(colorButtonTapped(_:)), for: .touchUpInside)
-        
-        // 첫 번째 색상이 기본 선택
-        if index == 0 {
-            button.layer.borderWidth = 2
-            button.layer.borderColor = UIColor.white.cgColor
-        }
         
         return button
     }
@@ -125,12 +117,11 @@ final class AlarmDetailViewController: UIViewController {
         $0.setTitleColor(UIColor(red: 0.8, green: 0.2, blue: 0.2, alpha: 1.0), for: .normal)
         $0.backgroundColor = UIColor(white: 0.15, alpha: 1.0)
         $0.layer.cornerRadius = 12
-        $0.addTarget(AlarmDetailViewController.self, action: #selector(deleteButtonTapped), for: .touchUpInside)
     }
     
     // MARK: - Lifecycle
-    init(isEditMode: Bool = false) {
-        self.isEditMode = isEditMode
+    init(viewModel: AlarmDetailViewModel) {
+        self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .overFullScreen
         modalTransitionStyle = .crossDissolve
@@ -142,15 +133,10 @@ final class AlarmDetailViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupButtonActions()
         configureUI()
         setupGestures()
-    }
-    
-    // MARK: - Set Button Method
-    private func setupButtonActions() {
-        closeButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
-        saveButton.addTarget(self, action: #selector(saveButtonTapped), for: .touchUpInside)
+        setupButtonActions()
+        updateUIFromViewModel()
     }
     
     // MARK: - UI Configuration
@@ -265,17 +251,17 @@ final class AlarmDetailViewController: UIViewController {
         colorsContainerView.addSubview(colorsStackView)
         colorsStackView.snp.makeConstraints {
             $0.top.equalTo(colorLabel.snp.bottom).offset(10)
-            $0.leading.trailing.bottom.equalToSuperview().priority(.high)
+            $0.leading.trailing.bottom.equalToSuperview()
         }
         
         colorButtons.forEach { button in
             button.snp.makeConstraints {
-                $0.size.equalTo(30)
+                $0.size.equalTo(30).priority(.high)
             }
         }
         
         // 삭제 버튼 (편집 모드에서만 표시)
-        if isEditMode {
+        if viewModel.isEditMode {
             view.addSubview(deleteButton)
             deleteButton.snp.makeConstraints {
                 $0.centerX.equalToSuperview()
@@ -292,6 +278,71 @@ final class AlarmDetailViewController: UIViewController {
         view.addGestureRecognizer(tapGesture)
     }
     
+    private func setupButtonActions() {
+        closeButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
+        saveButton.addTarget(self, action: #selector(saveButtonTapped), for: .touchUpInside)
+        deleteButton.addTarget(self, action: #selector(deleteButtonTapped), for: .touchUpInside)
+        
+        // 요일 버튼 액션
+        for button in dayButtons {
+            button.addTarget(self, action: #selector(dayButtonTapped(_:)), for: .touchUpInside)
+        }
+        
+        // 색상 버튼 액션
+        for button in colorButtons {
+            button.addTarget(self, action: #selector(colorButtonTapped(_:)), for: .touchUpInside)
+        }
+    }
+    
+    private func updateUIFromViewModel() {
+        // 뷰모델의 데이터로 UI 업데이트
+        titleLabel.text = viewModel.isEditMode ? "알람 편집" : "알람 추가"
+        labelTextField.text = viewModel.title
+        datePicker.date = viewModel.time
+        selectedDays = viewModel.selectedDays
+        selectedColor = viewModel.selectedColor
+        
+        // 타이틀 업데이트
+        titleLabel.text = viewModel.isEditMode ? "알람 편집" : "알람 추가"
+        
+        // 저장 버튼 색상 업데이트
+        saveButton.backgroundColor = selectedColor
+        
+        // 요일 버튼 상태 업데이트
+        updateDayButtons()
+        
+        // 색상 버튼 상태 업데이트
+        updateColorButtons()
+    }
+    
+    private func updateDayButtons() {
+        for button in dayButtons {
+            guard let day = WeekDay(rawValue: button.tag) else { continue }
+            let isSelected = selectedDays.contains(day)
+            
+            // 선택 상태 업데이트
+            if isSelected {
+                button.backgroundColor = selectedColor.withAlphaComponent(0.3)
+                button.layer.borderWidth = 1
+                button.layer.borderColor = selectedColor.cgColor
+            } else {
+                button.backgroundColor = UIColor(white: 0.2, alpha: 1.0)
+                button.layer.borderWidth = 0
+            }
+        }
+    }
+    
+    private func updateColorButtons() {
+        for (index, button) in colorButtons.enumerated() {
+            if index < colorButtons.count && button.backgroundColor == selectedColor {
+                button.layer.borderWidth = 2
+                button.layer.borderColor = UIColor.white.cgColor
+            } else {
+                button.layer.borderWidth = 0
+            }
+        }
+    }
+    
     // MARK: - Actions
     @objc private func dismissKeyboard() {
         view.endEditing(true)
@@ -302,8 +353,16 @@ final class AlarmDetailViewController: UIViewController {
     }
     
     @objc private func saveButtonTapped() {
-        // 알람 저장 로직
-        print("알람 저장됨")
+        // 알람 데이터 업데이트
+        viewModel.updateTitle(labelTextField.text ?? "알람")
+        viewModel.updateTime(datePicker.date)
+        viewModel.updateDays(selectedDays)
+        viewModel.updateColor(selectedColor)
+        
+        // 알람 저장
+        viewModel.saveAlarm()
+        
+        // 화면 닫기
         dismiss(animated: true)
     }
     
@@ -316,7 +375,7 @@ final class AlarmDetailViewController: UIViewController {
         
         let cancelAction = UIAlertAction(title: "취소", style: .cancel)
         let deleteAction = UIAlertAction(title: "삭제", style: .destructive) { [weak self] _ in
-            print("알람 삭제됨")
+            self?.viewModel.deleteAlarm()
             self?.dismiss(animated: true)
         }
         
@@ -338,6 +397,9 @@ final class AlarmDetailViewController: UIViewController {
             sender.layer.borderWidth = 1
             sender.layer.borderColor = selectedColor.cgColor
         }
+        
+        // 뷰모델 업데이트
+        viewModel.updateDays(selectedDays)
     }
     
     @objc private func colorButtonTapped(_ sender: UIButton) {
@@ -358,18 +420,9 @@ final class AlarmDetailViewController: UIViewController {
         saveButton.backgroundColor = selectedColor
         
         // 선택된 요일 버튼들의 색상 업데이트
-        updateDayButtonColors()
-    }
-    
-    private func updateDayButtonColors() {
-        for day in WeekDay.allCases {
-            guard let button = dayButtons.first(where: { $0.tag == day.rawValue }) else { continue }
-            
-            if selectedDays.contains(day) {
-                button.backgroundColor = selectedColor.withAlphaComponent(0.3)
-                button.layer.borderWidth = 1
-                button.layer.borderColor = selectedColor.cgColor
-            }
-        }
+        updateDayButtons()
+        
+        // 뷰모델 업데이트
+        viewModel.updateColor(selectedColor)
     }
 }

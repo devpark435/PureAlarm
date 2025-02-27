@@ -14,6 +14,7 @@ final class AlarmCollectionViewCell: UICollectionViewCell {
     
     // MARK: - Properties
     var toggleHandler: ((Bool) -> Void)?
+    private var currentAlarm: Alarm?
     
     // MARK: - UI Components
     private let containerView = UIView().then {
@@ -45,18 +46,28 @@ final class AlarmCollectionViewCell: UICollectionViewCell {
         $0.font = .systemFont(ofSize: 12)
     }
     
-    private lazy var toggleSwitch = CustomSwitch().then {
-        $0.addTarget(self, action: #selector(switchToggled), for: .valueChanged)
-    }
+    private lazy var toggleSwitch = CustomSwitch()
     
     // MARK: - Initialization
     override init(frame: CGRect) {
         super.init(frame: frame)
         configureUI()
+        setupActions()
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        // 셀 재사용 시 이전 상태 초기화
+        currentAlarm = nil
+        toggleHandler = nil
+        
+        // 스위치 타겟 초기화
+        toggleSwitch.removeTarget(nil, action: nil, for: .valueChanged)
+        setupActions()
     }
     
     // MARK: - UI Configuration
@@ -107,8 +118,15 @@ final class AlarmCollectionViewCell: UICollectionViewCell {
         containerView.layer.shadowOpacity = 0.2
     }
     
+    private func setupActions() {
+        toggleSwitch.addTarget(self, action: #selector(switchToggled), for: .valueChanged)
+    }
+    
     // MARK: - Configuration
     func configure(with alarm: Alarm) {
+        // 현재 알람 저장
+        currentAlarm = alarm
+        
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm"
         timeLabel.text = formatter.string(from: alarm.time)
@@ -125,13 +143,29 @@ final class AlarmCollectionViewCell: UICollectionViewCell {
             daysLabel.text = daysText
         }
         
+        // 스위치 상태를 설정하기 전에 타겟 일시 제거
+        toggleSwitch.removeTarget(self, action: #selector(switchToggled), for: .valueChanged)
         toggleSwitch.isOn = alarm.isActive
+        toggleSwitch.addTarget(self, action: #selector(switchToggled), for: .valueChanged)
+        
         colorIndicator.backgroundColor = alarm.color
         
-        // 알람이 켜져 있을 때 색상 효과
-        if alarm.isActive {
+        // 활성화 상태에 따른 시각적 상태 업데이트
+        updateVisualFeedback(isActive: alarm.isActive)
+    }
+    
+    // 알람 활성화 상태에 따른 UI 업데이트
+    private func updateVisualFeedback(isActive: Bool) {
+        // 텍스트 투명도 조정
+        timeLabel.alpha = isActive ? 1.0 : 0.5
+        titleLabel.alpha = isActive ? 1.0 : 0.5
+        amPmLabel.alpha = isActive ? 1.0 : 0.5
+        daysLabel.alpha = isActive ? 1.0 : 0.5
+        
+        // 테두리 스타일 조정
+        if isActive && currentAlarm != nil {
             containerView.layer.borderWidth = 1
-            containerView.layer.borderColor = alarm.color.withAlphaComponent(0.5).cgColor
+            containerView.layer.borderColor = currentAlarm?.color.withAlphaComponent(0.5).cgColor
         } else {
             containerView.layer.borderWidth = 0
         }
@@ -139,12 +173,20 @@ final class AlarmCollectionViewCell: UICollectionViewCell {
     
     // MARK: - Actions
     @objc private func switchToggled() {
-        toggleHandler?(toggleSwitch.isOn)
+        // 이벤트 중복 방지
+        toggleSwitch.removeTarget(self, action: #selector(switchToggled), for: .valueChanged)
         
-        // 애니메이션 효과
-        UIView.animate(withDuration: 0.3) {
-            self.timeLabel.alpha = self.toggleSwitch.isOn ? 1.0 : 0.5
-            self.titleLabel.alpha = self.toggleSwitch.isOn ? 1.0 : 0.5
+        let isOn = toggleSwitch.isOn
+        
+        // 즉시 UI 업데이트
+        updateVisualFeedback(isActive: isOn)
+        
+        // 핸들러 호출 (뷰컨트롤러에서 알람 상태 업데이트)
+        toggleHandler?(isOn)
+        
+        // 이벤트 다시 연결
+        DispatchQueue.main.async { [weak self] in
+            self?.toggleSwitch.addTarget(self, action: #selector(self?.switchToggled), for: .valueChanged)
         }
     }
 }
