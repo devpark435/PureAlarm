@@ -105,6 +105,15 @@ final class AlarmDetailViewModel {
             return
         }
         
+        // 시간 로그를 현지 시간 형식으로 출력
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.timeZone = TimeZone.current
+        let localTimeString = formatter.string(from: alarm.time)
+        
+        print("알람 저장 (현지 시간): \(localTimeString)")
+        print("알람 저장 (UTC): \(alarm.time)")
+        
         alarmSavedHandler?(alarm)
     }
     

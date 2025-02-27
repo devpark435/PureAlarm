@@ -298,7 +298,10 @@ final class AlarmDetailViewController: UIViewController {
         // 뷰모델의 데이터로 UI 업데이트
         titleLabel.text = viewModel.isEditMode ? "알람 편집" : "알람 추가"
         labelTextField.text = viewModel.title
+        
+        // 알람 시간을 DatePicker에 설정할 때 현지 시간 고려
         datePicker.date = viewModel.time
+        
         selectedDays = viewModel.selectedDays
         selectedColor = viewModel.selectedColor
         
@@ -353,11 +356,18 @@ final class AlarmDetailViewController: UIViewController {
     }
     
     @objc private func saveButtonTapped() {
+        // DatePicker에서 선택한 시간을 현지 시간으로 변환
+        let localTime = Date.convertPickerDateToLocalTime(datePicker.date)
+        
         // 알람 데이터 업데이트
         viewModel.updateTitle(labelTextField.text ?? "알람")
-        viewModel.updateTime(datePicker.date)
+        viewModel.updateTime(localTime) // 수정된 부분
         viewModel.updateDays(selectedDays)
         viewModel.updateColor(selectedColor)
+        
+        // 저장 전 로그 출력 (확인용)
+        print("저장 시간 (현지): \(localTime.getLocalFormattedTime())")
+        print("저장 시간 (시, 분): \(localTime.localHour)시 \(localTime.localMinute)분")
         
         // 알람 저장
         viewModel.saveAlarm()
