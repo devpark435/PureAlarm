@@ -13,6 +13,20 @@
 		D608569A2D6F2D8000AA48B8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D60856992D6F2D8000AA48B8 /* Assets.xcassets */; };
 		D60856AA2D6F328C00AA48B8 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = D60856A92D6F328C00AA48B8 /* SnapKit */; };
 		D60856AD2D6F329600AA48B8 /* Then in Frameworks */ = {isa = PBXBuildFile; productRef = D60856AC2D6F329600AA48B8 /* Then */; };
+		D60856B22D6F33C900AA48B8 /* Alarm.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856B12D6F33C900AA48B8 /* Alarm.swift */; };
+		D60856B42D6F33DA00AA48B8 /* AlarmUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856B32D6F33DA00AA48B8 /* AlarmUseCase.swift */; };
+		D60856B82D6F341B00AA48B8 /* UIView+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856B72D6F341B00AA48B8 /* UIView+Extensions.swift */; };
+		D60856BA2D6F342500AA48B8 /* Date+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856B92D6F342500AA48B8 /* Date+Extensions.swift */; };
+		D60856BC2D6F36DC00AA48B8 /* AlarmCollectionViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856BB2D6F36DC00AA48B8 /* AlarmCollectionViewCell.swift */; };
+		D60856C02D6F394700AA48B8 /* GradientView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856BF2D6F394700AA48B8 /* GradientView.swift */; };
+		D60856C22D6F399500AA48B8 /* CircleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856C12D6F399500AA48B8 /* CircleButton.swift */; };
+		D60856C42D6F39B100AA48B8 /* CustomSwitch.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856C32D6F39B100AA48B8 /* CustomSwitch.swift */; };
+		D60856C62D6F39CF00AA48B8 /* CustomTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856C52D6F39CF00AA48B8 /* CustomTextField.swift */; };
+		D60856C82D6F39F700AA48B8 /* SleepSummaryCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856C72D6F39F700AA48B8 /* SleepSummaryCardView.swift */; };
+		D60856CA2D6F3A0200AA48B8 /* SleepGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856C92D6F3A0200AA48B8 /* SleepGraphView.swift */; };
+		D60856D02D6F3E4F00AA48B8 /* AlarmDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856CF2D6F3E4F00AA48B8 /* AlarmDetailViewController.swift */; };
+		D60856D32D6F44CD00AA48B8 /* MainTabBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856D22D6F44CD00AA48B8 /* MainTabBarController.swift */; };
+		D60856D72D6F44FC00AA48B8 /* SleepManagementViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856D62D6F44FC00AA48B8 /* SleepManagementViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -22,6 +36,20 @@
 		D60856942D6F2D7D00AA48B8 /* AlarmListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmListViewController.swift; sourceTree = "<group>"; };
 		D60856992D6F2D8000AA48B8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D608569E2D6F2D8000AA48B8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D60856B12D6F33C900AA48B8 /* Alarm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alarm.swift; sourceTree = "<group>"; };
+		D60856B32D6F33DA00AA48B8 /* AlarmUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmUseCase.swift; sourceTree = "<group>"; };
+		D60856B72D6F341B00AA48B8 /* UIView+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Extensions.swift"; sourceTree = "<group>"; };
+		D60856B92D6F342500AA48B8 /* Date+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Extensions.swift"; sourceTree = "<group>"; };
+		D60856BB2D6F36DC00AA48B8 /* AlarmCollectionViewCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmCollectionViewCell.swift; sourceTree = "<group>"; };
+		D60856BF2D6F394700AA48B8 /* GradientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradientView.swift; sourceTree = "<group>"; };
+		D60856C12D6F399500AA48B8 /* CircleButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleButton.swift; sourceTree = "<group>"; };
+		D60856C32D6F39B100AA48B8 /* CustomSwitch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomSwitch.swift; sourceTree = "<group>"; };
+		D60856C52D6F39CF00AA48B8 /* CustomTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTextField.swift; sourceTree = "<group>"; };
+		D60856C72D6F39F700AA48B8 /* SleepSummaryCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSummaryCardView.swift; sourceTree = "<group>"; };
+		D60856C92D6F3A0200AA48B8 /* SleepGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepGraphView.swift; sourceTree = "<group>"; };
+		D60856CF2D6F3E4F00AA48B8 /* AlarmDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmDetailViewController.swift; sourceTree = "<group>"; };
+		D60856D22D6F44CD00AA48B8 /* MainTabBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabBarController.swift; sourceTree = "<group>"; };
+		D60856D62D6F44FC00AA48B8 /* SleepManagementViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepManagementViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,6 +84,8 @@
 		D608568F2D6F2D7D00AA48B8 /* PureAlarm */ = {
 			isa = PBXGroup;
 			children = (
+				D60856B52D6F33FF00AA48B8 /* Common */,
+				D60856AE2D6F33A600AA48B8 /* Domain */,
 				D60856A42D6F2EFC00AA48B8 /* Application */,
 				D60856A52D6F2F1700AA48B8 /* Presentation */,
 				D60856992D6F2D8000AA48B8 /* Assets.xcassets */,
@@ -76,6 +106,9 @@
 		D60856A52D6F2F1700AA48B8 /* Presentation */ = {
 			isa = PBXGroup;
 			children = (
+				D60856D42D6F44E200AA48B8 /* SleepManagement */,
+				D60856D12D6F44BE00AA48B8 /* TabBar */,
+				D60856CD2D6F3E4200AA48B8 /* AlarmDetail */,
 				D60856A62D6F2F3C00AA48B8 /* AlarmList */,
 			);
 			path = Presentation;
@@ -93,6 +126,103 @@
 			isa = PBXGroup;
 			children = (
 				D60856942D6F2D7D00AA48B8 /* AlarmListViewController.swift */,
+				D60856BB2D6F36DC00AA48B8 /* AlarmCollectionViewCell.swift */,
+				D60856C72D6F39F700AA48B8 /* SleepSummaryCardView.swift */,
+				D60856C92D6F3A0200AA48B8 /* SleepGraphView.swift */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
+		D60856AE2D6F33A600AA48B8 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				D60856AF2D6F33AC00AA48B8 /* Entities */,
+				D60856B02D6F33B400AA48B8 /* UseCases */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		D60856AF2D6F33AC00AA48B8 /* Entities */ = {
+			isa = PBXGroup;
+			children = (
+				D60856B12D6F33C900AA48B8 /* Alarm.swift */,
+			);
+			path = Entities;
+			sourceTree = "<group>";
+		};
+		D60856B02D6F33B400AA48B8 /* UseCases */ = {
+			isa = PBXGroup;
+			children = (
+				D60856B32D6F33DA00AA48B8 /* AlarmUseCase.swift */,
+			);
+			path = UseCases;
+			sourceTree = "<group>";
+		};
+		D60856B52D6F33FF00AA48B8 /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				D60856BE2D6F393A00AA48B8 /* Components */,
+				D60856B62D6F340300AA48B8 /* Extensions */,
+			);
+			path = Common;
+			sourceTree = "<group>";
+		};
+		D60856B62D6F340300AA48B8 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				D60856B72D6F341B00AA48B8 /* UIView+Extensions.swift */,
+				D60856B92D6F342500AA48B8 /* Date+Extensions.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		D60856BE2D6F393A00AA48B8 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				D60856BF2D6F394700AA48B8 /* GradientView.swift */,
+				D60856C12D6F399500AA48B8 /* CircleButton.swift */,
+				D60856C32D6F39B100AA48B8 /* CustomSwitch.swift */,
+				D60856C52D6F39CF00AA48B8 /* CustomTextField.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		D60856CD2D6F3E4200AA48B8 /* AlarmDetail */ = {
+			isa = PBXGroup;
+			children = (
+				D60856CE2D6F3E4800AA48B8 /* View */,
+			);
+			path = AlarmDetail;
+			sourceTree = "<group>";
+		};
+		D60856CE2D6F3E4800AA48B8 /* View */ = {
+			isa = PBXGroup;
+			children = (
+				D60856CF2D6F3E4F00AA48B8 /* AlarmDetailViewController.swift */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
+		D60856D12D6F44BE00AA48B8 /* TabBar */ = {
+			isa = PBXGroup;
+			children = (
+				D60856D22D6F44CD00AA48B8 /* MainTabBarController.swift */,
+			);
+			path = TabBar;
+			sourceTree = "<group>";
+		};
+		D60856D42D6F44E200AA48B8 /* SleepManagement */ = {
+			isa = PBXGroup;
+			children = (
+				D60856D52D6F44EE00AA48B8 /* View */,
+			);
+			path = SleepManagement;
+			sourceTree = "<group>";
+		};
+		D60856D52D6F44EE00AA48B8 /* View */ = {
+			isa = PBXGroup;
+			children = (
+				D60856D62D6F44FC00AA48B8 /* SleepManagementViewController.swift */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -174,9 +304,23 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D60856C42D6F39B100AA48B8 /* CustomSwitch.swift in Sources */,
+				D60856B82D6F341B00AA48B8 /* UIView+Extensions.swift in Sources */,
 				D60856952D6F2D7D00AA48B8 /* AlarmListViewController.swift in Sources */,
+				D60856CA2D6F3A0200AA48B8 /* SleepGraphView.swift in Sources */,
+				D60856BA2D6F342500AA48B8 /* Date+Extensions.swift in Sources */,
 				D60856912D6F2D7D00AA48B8 /* AppDelegate.swift in Sources */,
 				D60856932D6F2D7D00AA48B8 /* SceneDelegate.swift in Sources */,
+				D60856D72D6F44FC00AA48B8 /* SleepManagementViewController.swift in Sources */,
+				D60856C22D6F399500AA48B8 /* CircleButton.swift in Sources */,
+				D60856B42D6F33DA00AA48B8 /* AlarmUseCase.swift in Sources */,
+				D60856C62D6F39CF00AA48B8 /* CustomTextField.swift in Sources */,
+				D60856D32D6F44CD00AA48B8 /* MainTabBarController.swift in Sources */,
+				D60856C02D6F394700AA48B8 /* GradientView.swift in Sources */,
+				D60856B22D6F33C900AA48B8 /* Alarm.swift in Sources */,
+				D60856BC2D6F36DC00AA48B8 /* AlarmCollectionViewCell.swift in Sources */,
+				D60856D02D6F3E4F00AA48B8 /* AlarmDetailViewController.swift in Sources */,
+				D60856C82D6F39F700AA48B8 /* SleepSummaryCardView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
