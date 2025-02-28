@@ -36,20 +36,25 @@ class AlarmNotificationManager {
             return
         }
         
-        // 알람 내용 생성
+        // 먼저 기존 알람 관련 알림들 취소
+        cancelAlarm(alarmId: alarm.id)
+        
+        // 반복 알람이 아닌 경우 여러 개의 알림을 미리 예약
+        if alarm.days.isEmpty {
+            scheduleBatchNotifications(for: alarm, count: 30, intervalSeconds: 2) // 2초 간격으로 30회 반복
+            completion(true)
+            return
+        }
+        
+        // 반복 알람인 경우 기존 로직 유지
         let content = UNMutableNotificationContent()
         content.title = alarm.title.isEmpty ? "알람" : alarm.title
         content.body = "지금 시간: \(formatTime(date: Date()))"
-        content.sound = UNNotificationSound.default // 기본 소리로 설정 (실제로는 커스텀 소리 사용)
-        content.userInfo = ["alarm_id": alarm.id.uuidString] // 알람 ID 저장
-        content.categoryIdentifier = "ALARM_CATEGORY" // 카테고리 지정 추가
+        content.sound = UNNotificationSound.default
+        content.userInfo = ["alarm_id": alarm.id.uuidString]
+        content.categoryIdentifier = "ALARM_CATEGORY"
         
-        // 알람이 반복되는 경우
-        if !alarm.days.isEmpty {
-            scheduleRepeatingAlarm(alarm: alarm, content: content, completion: completion)
-        } else {
-            scheduleOneTimeAlarm(alarm: alarm, content: content, completion: completion)
-        }
+        scheduleRepeatingAlarm(alarm: alarm, content: content, completion: completion)
     }
     
     /// 알람 취소
@@ -103,6 +108,74 @@ class AlarmNotificationManager {
         }
     }
     
+    /// 여러 번 반복되는 알림을 예약합니다 (사용자가 앱을 실행하지 않는 상황 대비)
+    func scheduleBatchNotifications(for alarm: Alarm, count: Int = 30, intervalSeconds: Int = 2) {
+        guard alarm.isActive else { return }
+        
+        // 기본 알람 알림 내용
+        let baseContent = UNMutableNotificationContent()
+        baseContent.title = alarm.title.isEmpty ? "알람" : alarm.title
+        baseContent.sound = UNNotificationSound.default
+        baseContent.categoryIdentifier = "ALARM_CATEGORY"
+        
+        // 알람 시간 계산
+        let calendar = Calendar.current
+        var alarmDate = alarm.time
+        
+        // 오늘 날짜에 알람 시간 설정
+        if alarm.days.isEmpty {
+            alarmDate = combineDateAndTime(Date(), alarm.time)
+            // 이미 지난 시간이면 다음 날로 설정
+            if alarmDate < Date() {
+                if let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: Date()) {
+                    alarmDate = combineDateAndTime(nextDay, alarm.time)
+                }
+            }
+        }
+        
+        // 여러 개의 알림 예약
+        for i in 0..<count {
+            let content = baseContent.mutableCopy() as! UNMutableNotificationContent
+            
+            // i가 0이면 원래 알람, 아니면 반복 알람
+            if i > 0 {
+                content.title = "\(baseContent.title) (\(i)회 알림)"
+                content.body = "놓친 알람이 있습니다! 지금 시간: \(formatTime(date: Date()))"
+            } else {
+                content.body = "지금 시간: \(formatTime(date: Date()))"
+            }
+            
+            content.userInfo = [
+                "alarm_id": alarm.id.uuidString,
+                "notification_sequence": i,
+                "original_alarm_time": alarmDate.timeIntervalSince1970
+            ]
+            
+            // 첫 번째는 원래 알람 시간, 나머지는 간격을 두고 추가
+            var triggerDate = alarmDate
+            if i > 0 {
+                triggerDate = calendar.date(byAdding: .second, value: i * intervalSeconds, to: alarmDate) ?? alarmDate
+            }
+            
+            // 트리거 생성 (초 단위까지 포함)
+            let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: triggerDate)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            
+            // 알림 요청 생성
+            let requestId = "\(alarm.id.uuidString)-seq\(i)"
+            let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
+            
+            // 알림 등록
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("알림 \(i) 등록 오류: \(error.localizedDescription)")
+                } else {
+                    print("알림 \(i) 등록 성공: \(triggerDate)")
+                }
+            }
+        }
+    }
+    
     // 알람 ID로 알람 정보 가져오기 (internal로 변경)
     internal func getAlarmById(_ alarmId: UUID) -> Alarm? {
         // 실제 구현에서는 저장소에서 알람 정보를 가져와야 함
@@ -114,6 +187,18 @@ class AlarmNotificationManager {
             isActive: true
         )
         return dummyAlarm
+    }
+    
+    /// 알람 ID로 모든 연관 알림을 취소합니다
+    func cancelAllRelatedNotifications(for alarmId: UUID) {
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let identifiersToRemove = requests
+                .filter { $0.identifier.contains(alarmId.uuidString) }
+                .map { $0.identifier }
+            
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
+            print("\(identifiersToRemove.count)개의 관련 알림 취소됨")
+        }
     }
     
     // MARK: - Private Methods
@@ -216,6 +301,11 @@ class AlarmNotificationManager {
         let idString = alarmId.uuidString
         var identifiers = [idString] // 기본 ID
         
+        // 시퀀스 ID들 추가 (30개의 배치 알림)
+        for i in 0..<30 {
+            identifiers.append("\(idString)-seq\(i)")
+        }
+        
         // 반복 알람의 경우 요일별 ID 추가
         for day in WeekDay.allCases {
             identifiers.append("\(idString)-\(day.rawValue)")
@@ -262,6 +352,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             // 기본 액션: 알람 화면 표시
             print("기본 액션: 알람 화면 표시 시도")
             showAlarmScreen(for: alarmId)
+            AlarmNotificationManager.shared.cancelAllRelatedNotifications(for: alarmId)
             
         case UNNotificationDismissActionIdentifier:
             // 알림 무시: 아무 작업 없음
@@ -276,6 +367,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         case "STOP_ACTION":
             // 알람 중지 액션
             print("알람 중지 액션")
+            AlarmNotificationManager.shared.cancelAllRelatedNotifications(for: alarmId)
             break
             
         default:
