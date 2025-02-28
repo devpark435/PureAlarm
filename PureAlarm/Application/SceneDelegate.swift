@@ -15,8 +15,24 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = (scene as? UIWindowScene) else { return }
         
+        // 의존성 설정
+        let storage = AlarmStorage.shared
+        let repository = AlarmRepository(storage: storage)
+        let useCase = AlarmUseCase(repository: repository)
+        let viewModel = AlarmListViewModel(useCase: useCase)
+        
+        // 알람 뷰컨트롤러 생성 (의존성 주입)
+        let alarmViewController = AlarmListViewController(viewModel: viewModel)
+        let alarmNavController = UINavigationController(rootViewController: alarmViewController)
+        
+        // 수면관리 뷰컨트롤러 생성
+        let sleepManagementViewController = SleepManagementViewController()
+        let sleepNavController = UINavigationController(rootViewController: sleepManagementViewController)
+        
         // 탭바 컨트롤러 설정
         let tabBarController = MainTabBarController()
+        tabBarController.setViewControllers([alarmNavController, sleepNavController], animated: false)
+        tabBarController.setupTabItems() // 탭 아이템 설정
         
         // 윈도우 설정
         window = UIWindow(windowScene: windowScene)
@@ -25,7 +41,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.makeKeyAndVisible()
         window?.tintColor = .orange
         window?.backgroundColor = .black
-        
     }
     
     func sceneDidDisconnect(_ scene: UIScene) {

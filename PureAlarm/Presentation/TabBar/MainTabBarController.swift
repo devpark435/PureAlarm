@@ -11,30 +11,11 @@ final class MainTabBarController: UITabBarController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupTabBar()
+        setupTabBarStyle()
     }
     
-    private func setupTabBar() {
-        // 알람 탭
-        let alarmVC = AlarmListViewController()
-        let alarmNavController = UINavigationController(rootViewController: alarmVC)
-        alarmNavController.navigationBar.isHidden = true // 내비게이션 바 숨김
-        alarmNavController.tabBarItem = UITabBarItem(
-            title: "알람",
-            image: UIImage(systemName: "alarm"),
-            selectedImage: UIImage(systemName: "alarm.fill")
-        )
-        
-        // 수면 관리 탭
-        let sleepVC = SleepManagementViewController()
-        let sleepNavController = UINavigationController(rootViewController: sleepVC)
-        sleepNavController.navigationBar.isHidden = true // 내비게이션 바 숨김
-        sleepNavController.tabBarItem = UITabBarItem(
-            title: "수면 관리",
-            image: UIImage(systemName: "bed.double"),
-            selectedImage: UIImage(systemName: "bed.double.fill")
-        )
-        
+    // 탭바 스타일만 설정하는 메서드
+    private func setupTabBarStyle() {
         // 탭바 스타일 설정
         tabBar.tintColor = UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
         tabBar.unselectedItemTintColor = UIColor(white: 0.6, alpha: 1.0)
@@ -59,13 +40,34 @@ final class MainTabBarController: UITabBarController {
             tabBar.backgroundColor = UIColor(white: 0.15, alpha: 1.0)
         }
         
-        // 뷰 컨트롤러 설정
-        viewControllers = [alarmNavController, sleepNavController]
-        
         // 그림자 효과 추가
         tabBar.layer.shadowColor = UIColor.black.cgColor
         tabBar.layer.shadowOffset = CGSize(width: 0, height: -3)
         tabBar.layer.shadowRadius = 8
         tabBar.layer.shadowOpacity = 0.3
+    }
+    
+    // SceneDelegate에서 뷰 컨트롤러들을 설정한 후 호출하는 메서드
+    func setupTabItems() {
+        guard let viewControllers = viewControllers else { return }
+        
+        // 각 뷰 컨트롤러에 탭바 아이템 설정
+        if viewControllers.indices.contains(0), let navController = viewControllers[0] as? UINavigationController {
+            navController.navigationBar.isHidden = true
+            navController.tabBarItem = UITabBarItem(
+                title: "알람",
+                image: UIImage(systemName: "alarm"),
+                selectedImage: UIImage(systemName: "alarm.fill")
+            )
+        }
+        
+        if viewControllers.indices.contains(1), let navController = viewControllers[1] as? UINavigationController {
+            navController.navigationBar.isHidden = true
+            navController.tabBarItem = UITabBarItem(
+                title: "수면 관리",
+                image: UIImage(systemName: "bed.double"),
+                selectedImage: UIImage(systemName: "bed.double.fill")
+            )
+        }
     }
 }
