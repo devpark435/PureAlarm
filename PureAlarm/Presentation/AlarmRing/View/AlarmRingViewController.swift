@@ -323,10 +323,19 @@ class AlarmRingViewController: UIViewController {
         // 알람 종료
         stopAlarm()
         
-        // 화면 닫기
-        UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            exit(0)
+        // 알람 창 닫기
+        DispatchQueue.main.async {
+            // 원래 창으로 돌아가기
+            if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+                appDelegate.alarmWindow?.isHidden = true
+                appDelegate.alarmWindow = nil
+                
+                // 원래 창을 다시 키 창으로 만들기
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let mainWindow = windowScene.windows.first(where: { $0 != appDelegate.alarmWindow }) {
+                    mainWindow.makeKeyAndVisible()
+                }
+            }
         }
     }
     
@@ -349,10 +358,23 @@ class AlarmRingViewController: UIViewController {
         // AlarmNotificationManager를 통해 스누즈 알람 설정
         AlarmNotificationManager.shared.scheduleSnoozeAlarm(for: alarm.id, minutes: 5)
         
-        DispatchQueue.main.async { [weak self] in
-            self?.presentingViewController?.dismiss(animated: true)
-        }
+        // 알람 소리 및 진동 중지
+        stopAlarm()
         
+        // 알람 창 닫기
+        DispatchQueue.main.async {
+            // 원래 창으로 돌아가기
+            if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+                appDelegate.alarmWindow?.isHidden = true
+                appDelegate.alarmWindow = nil
+                
+                // 원래 창을 다시 키 창으로 만들기
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let mainWindow = windowScene.windows.first(where: { $0 != appDelegate.alarmWindow }) {
+                    mainWindow.makeKeyAndVisible()
+                }
+            }
+        }
     }
     
 }
