@@ -11,8 +11,18 @@ import Then
 
 final class AlarmListViewController: UIViewController {
     // MARK: - Properties
-    private let viewModel = AlarmListViewModel()
+    private let viewModel: AlarmListViewModel
     private var alarms: [Alarm] = []
+    
+    // 의존성 주입을 위한 생성자 추가
+    init(viewModel: AlarmListViewModel) {
+        self.viewModel = viewModel
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     // MARK: - UI Components
     private let gradientBackgroundView = GradientView(
