@@ -142,8 +142,8 @@ class AlarmRingViewController: UIViewController {
         sliderContainer.snp.makeConstraints {
             $0.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-80)
             $0.centerX.equalToSuperview()
-            $0.width.equalTo(300)
-            $0.height.equalTo(60)
+            $0.leading.trailing.equalToSuperview().inset(20)
+            $0.height.equalTo(80)
         }
         
         sliderContainer.addSubviews(sliderTrack, slideToStopLabel)
@@ -152,7 +152,7 @@ class AlarmRingViewController: UIViewController {
             $0.leading.equalToSuperview().offset(6)
             $0.trailing.equalToSuperview().offset(-6)
             $0.centerY.equalToSuperview()
-            $0.height.equalTo(48)
+            $0.height.equalTo(68)
         }
         
         slideToStopLabel.snp.makeConstraints {
@@ -163,7 +163,7 @@ class AlarmRingViewController: UIViewController {
         sliderThumb.snp.makeConstraints {
             $0.leading.equalTo(sliderTrack.snp.leading)
             $0.centerY.equalToSuperview()
-            $0.size.equalTo(48)
+            $0.size.equalTo(68)
         }
         
         sliderThumb.addSubview(alarmIconImageView)
