@@ -15,6 +15,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = (scene as? UIWindowScene) else { return }
         
+        // 윈도우 설정
+        window = UIWindow(windowScene: windowScene)
+        window?.overrideUserInterfaceStyle = .dark // 다크모드 적용
+        window?.tintColor = .orange
+        window?.backgroundColor = .black
+        
+        // 런치스크린 표시
+        let launchScreenVC = LaunchScreenViewController()
+        launchScreenVC.delegate = self
+        window?.rootViewController = launchScreenVC
+        window?.makeKeyAndVisible()
+    }
+    
+    // 메인 화면으로 전환하는 메소드
+    func showMainInterface() {
         // 의존성 설정
         let storage = AlarmStorage.shared
         let repository = AlarmRepository(storage: storage)
@@ -34,14 +49,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         tabBarController.setViewControllers([alarmNavController, sleepNavController], animated: false)
         tabBarController.setupTabItems() // 탭 아이템 설정
         
-        // 윈도우 설정
-        window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = tabBarController
-        window?.overrideUserInterfaceStyle = .dark // 다크모드 적용
-        window?.makeKeyAndVisible()
-        window?.tintColor = .orange
-        window?.backgroundColor = .black
+        // 화면 전환 애니메이션
+        UIView.transition(with: self.window!,
+                          duration: 0.5,
+                          options: .transitionCrossDissolve,
+                          animations: {
+            self.window?.rootViewController = tabBarController
+        }, completion: nil)
     }
+    
     
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
@@ -74,3 +90,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     
 }
 
+// SceneDelegate 확장하여 런치스크린 델리게이트 처리
+extension SceneDelegate: LaunchScreenViewControllerDelegate {
+    func launchScreenFinished() {
+        self.showMainInterface()
+    }
+}
