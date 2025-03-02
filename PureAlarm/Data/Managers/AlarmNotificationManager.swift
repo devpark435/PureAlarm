@@ -70,42 +70,27 @@ class AlarmNotificationManager {
     }
     
     /// 스누즈 알람 설정
-    func scheduleSnoozeAlarm(for alarmId: UUID, minutes: Int = 5) {
+    func scheduleSnoozeAlarm(for alarmId: UUID, minutes: Int = 1) {
         // 기존 알람 정보 가져오기
         guard let alarm = getAlarmById(alarmId) else { return }
-        
-        // 알람 내용 생성
-        let content = UNMutableNotificationContent()
-        content.title = "\(alarm.title) (스누즈)"
-        content.body = "지금 시간: \(formatTime(date: Date()))"
-        content.sound = UNNotificationSound.default
-        content.userInfo = ["alarm_id": alarm.id.uuidString, "is_snooze": true]
-        content.categoryIdentifier = "ALARM_CATEGORY" // 카테고리 지정 추가
         
         // 스누즈 시간 계산 (현재 시간 + minutes분)
         let calendar = Calendar.current
         
-        guard let triggerDate = calendar.date(byAdding: .minute, value: minutes, to: Date()) else {
+        guard let snoozeDate = calendar.date(byAdding: .minute, value: minutes, to: Date()) else {
             print("스누즈 시간 계산 오류")
             return
         }
         
-        // 알림 트리거 생성 (현지 시간대 고려)
-        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: triggerDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        // 스누즈된 알람 객체 생성 (원본 알람 복제 후 시간 수정)
+        var snoozeAlarm = alarm
+        snoozeAlarm.time = snoozeDate
+        snoozeAlarm.title = "\(alarm.title) (반복 알람)"
         
-        // 스누즈 알람 ID 생성
-        let requestId = "\(alarm.id.uuidString)-snooze"
+        // 스누즈 알람도 30회 반복되도록 배치 알림 설정
+        scheduleBatchNotifications(for: snoozeAlarm, count: 30, intervalSeconds: 2)
         
-        // 알림 요청 생성 및 등록
-        let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("스누즈 알람 설정 오류: \(error.localizedDescription)")
-            } else {
-                print("스누즈 알람 설정 완료: \(minutes)분 후 (현지 시간: \(triggerDate))")
-            }
-        }
+        print("스누즈 알람 설정 완료: \(minutes)분 후 (현지 시간: \(snoozeDate))")
     }
     
     /// 여러 번 반복되는 알림을 예약합니다
@@ -170,7 +155,9 @@ class AlarmNotificationManager {
                 if let error = error {
                     print("알림 \(i) 등록 오류: \(error.localizedDescription)")
                 } else {
-                    print("알림 \(i) 등록 성공: \(triggerDate)")
+                    // 현지 시간으로 포맷팅하여 출력
+                    let localTimeString = self.formatTime(date: triggerDate)
+                    print("알림 \(i) 등록 성공: \(localTimeString) (시퀀스: \(i))")
                 }
             }
         }
