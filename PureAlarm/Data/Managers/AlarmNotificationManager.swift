@@ -108,7 +108,7 @@ class AlarmNotificationManager {
         }
     }
     
-    /// 여러 번 반복되는 알림을 예약합니다 (사용자가 앱을 실행하지 않는 상황 대비)
+    /// 여러 번 반복되는 알림을 예약합니다
     func scheduleBatchNotifications(for alarm: Alarm, count: Int = 30, intervalSeconds: Int = 2) {
         guard alarm.isActive else { return }
         
@@ -172,127 +172,6 @@ class AlarmNotificationManager {
                 } else {
                     print("알림 \(i) 등록 성공: \(triggerDate)")
                 }
-            }
-        }
-        
-        // 마지막 알림 시간 계산
-        let lastNotificationTime = calendar.date(byAdding: .second, value: (count - 1) * intervalSeconds, to: alarmDate) ?? alarmDate
-        // 마지막 알림 이후 자동 스누즈 알림 설정 (2초 후)
-        scheduleAutoSnoozeAlert(for: alarm, after: lastNotificationTime.addingTimeInterval(2))
-    }
-
-    /// 자동 스누즈 안내 알림 설정
-    private func scheduleAutoSnoozeAlert(for alarm: Alarm, after date: Date) {
-        // 알림 내용 생성
-        let content = UNMutableNotificationContent()
-        content.title = "알람이 자동으로 스누즈 되었습니다"
-        content.body = "알람을 해제하지 않아 5분 후에 다시 알림이 울립니다. 지금 시간: \(formatTime(date: Date()))"
-        content.sound = UNNotificationSound.default
-        content.userInfo = [
-            "alarm_id": alarm.id.uuidString,
-            "is_auto_snooze_alert": true
-        ]
-        content.categoryIdentifier = "ALARM_CATEGORY"
-        
-        // 트리거 생성
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        
-        // 알림 요청 생성
-        let requestId = "\(alarm.id.uuidString)-auto-snooze-alert"
-        let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
-        
-        // 알림 등록
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("자동 스누즈 알림 등록 오류: \(error.localizedDescription)")
-            } else {
-                print("자동 스누즈 알림 등록 성공: \(date)")
-            }
-        }
-        
-        // 5분 후에 실제 알람 울리도록 설정
-        scheduleAutoSnoozeAlarm(for: alarm, after: date.addingTimeInterval(5 * 60))
-    }
-
-    /// 자동 스누즈 알람 설정 (5분 후)
-    private func scheduleAutoSnoozeAlarm(for alarm: Alarm, after date: Date) {
-        // 알람 내용 생성
-        let content = UNMutableNotificationContent()
-        content.title = "\(alarm.title) (자동 스누즈)"
-        content.body = "지금 시간: \(formatTime(date: Date()))"
-        content.sound = UNNotificationSound.default
-        content.userInfo = [
-            "alarm_id": alarm.id.uuidString,
-            "is_auto_snooze": true
-        ]
-        content.categoryIdentifier = "ALARM_CATEGORY"
-        
-        // 트리거 생성
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        
-        // 알림 요청 생성
-        let requestId = "\(alarm.id.uuidString)-auto-snooze"
-        let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
-        
-        // 알림 등록
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("자동 스누즈 알람 등록 오류: \(error.localizedDescription)")
-            } else {
-                print("자동 스누즈 알람 등록 성공: \(date)")
-                
-                // 추가: 자동 스누즈 알람 후 30회 반복 알림 설정
-                self.scheduleRepeatedAlarmsAfterAutoSnooze(for: alarm, startTime: date, count: 30, intervalSeconds: 2)
-            }
-        }
-    }
-
-    /// 자동 스누즈 후 반복 알림 설정
-    private func scheduleRepeatedAlarmsAfterAutoSnooze(for alarm: Alarm, startTime: Date, count: Int, intervalSeconds: Int) {
-        let calendar = Calendar.current
-        
-        for i in 1..<count {
-            // 알람 내용 생성
-            let content = UNMutableNotificationContent()
-            content.title = "\(alarm.title) (자동 스누즈 \(i)회)"
-            content.body = "놓친 알람이 있습니다! 지금 시간: \(formatTime(date: Date()))"
-            content.sound = UNNotificationSound.default
-            content.userInfo = [
-                "alarm_id": alarm.id.uuidString,
-                "is_auto_snooze": true,
-                "auto_snooze_sequence": i
-            ]
-            content.categoryIdentifier = "ALARM_CATEGORY"
-            
-            // 트리거 시간 계산
-            guard let triggerDate = calendar.date(byAdding: .second, value: i * intervalSeconds, to: startTime) else {
-                continue
-            }
-            
-            // 트리거 생성
-            let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: triggerDate)
-            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-            
-            // 알림 요청 생성
-            let requestId = "\(alarm.id.uuidString)-auto-snooze-seq\(i)"
-            let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
-            
-            // 알림 등록
-            UNUserNotificationCenter.current().add(request) { error in
-                if let error = error {
-                    print("자동 스누즈 반복 알림 \(i) 등록 오류: \(error.localizedDescription)")
-                } else {
-                    print("자동 스누즈 반복 알림 \(i) 등록 성공: \(triggerDate)")
-                }
-            }
-            
-            // 마지막 반복 알림인 경우, 다음 자동 스누즈 설정
-            if i == count - 1 {
-                // 다음 자동 스누즈 알림 (마지막 알림 2초 후)
-                let nextAutoSnoozeAlertTime = triggerDate.addingTimeInterval(2)
-                self.scheduleAutoSnoozeAlert(for: alarm, after: nextAutoSnoozeAlertTime)
             }
         }
     }
@@ -427,13 +306,10 @@ class AlarmNotificationManager {
             identifiers.append("\(idString)-seq\(i)")
         }
         
-        // 자동 스누즈 관련 ID들 추가
-        identifiers.append("\(idString)-auto-snooze-alert")
+        // 자동 스누즈 ID 추가
         identifiers.append("\(idString)-auto-snooze")
-        
-        // 자동 스누즈 반복 알림 ID 추가
-        for i in 0..<30 {
-            identifiers.append("\(idString)-auto-snooze-seq\(i)")
+        for i in 0..<10 {
+            identifiers.append("\(idString)-auto-snooze-\(i + 1)")
         }
         
         // 반복 알람의 경우 요일별 ID 추가
@@ -475,13 +351,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         }
         
         print("알람 ID 추출 성공: \(alarmId)")
-        
-        // 자동 스누즈 알림인 경우 특별 처리
-        if userInfo["is_auto_snooze_alert"] as? Bool == true {
-            print("자동 스누즈 알림 처리됨")
-            completionHandler()
-            return
-        }
         
         // 응답 액션에 따라 처리
         switch response.actionIdentifier {
