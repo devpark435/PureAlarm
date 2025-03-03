@@ -15,6 +15,7 @@ final class AlarmDetailViewController: UIViewController {
     private let viewModel: AlarmDetailViewModel
     private var selectedDays: [WeekDay] = []
     private var selectedColor: UIColor = UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
+    private var selectedRepeatInterval: Int = 0 // 0은 반복 없음, 1, 5, 10, 15 등은 분 단위
     
     // MARK: - UI Components
     private let gradientBackgroundView = GradientView(
@@ -119,6 +120,31 @@ final class AlarmDetailViewController: UIViewController {
         $0.layer.cornerRadius = 12
     }
     
+    private let repeatIntervalContainerView = UIView().then {
+        $0.backgroundColor = .clear
+    }
+
+    private let repeatIntervalLabel = UILabel().then {
+        $0.text = "알람 반복 간격"
+        $0.textColor = UIColor(white: 0.7, alpha: 1.0)
+        $0.font = .systemFont(ofSize: 14)
+    }
+
+    private lazy var repeatIntervalSegmentedControl = UISegmentedControl(items: ["없음", "1분", "5분", "10분", "15분"]).then {
+        $0.selectedSegmentIndex = 0
+        $0.backgroundColor = UIColor(white: 0.2, alpha: 1.0)
+        
+        // 세그먼트 컨트롤 스타일 설정
+        $0.setTitleTextAttributes([.foregroundColor: UIColor(white: 0.7, alpha: 1.0)], for: .normal)
+        $0.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .selected)
+        
+        if #available(iOS 13.0, *) {
+            $0.selectedSegmentTintColor = selectedColor
+        } else {
+            $0.tintColor = selectedColor
+        }
+    }
+    
     // MARK: - Lifecycle
     init(viewModel: AlarmDetailViewModel) {
         self.viewModel = viewModel
@@ -191,7 +217,7 @@ final class AlarmDetailViewController: UIViewController {
         }
         
         optionsContainerView.addSubviews(
-            labelTextField, daysContainerView, colorsContainerView
+            labelTextField, daysContainerView, repeatIntervalContainerView, colorsContainerView
         )
         
         labelTextField.snp.makeConstraints {
@@ -230,8 +256,27 @@ final class AlarmDetailViewController: UIViewController {
             }
         }
         
-        colorsContainerView.snp.makeConstraints {
+        repeatIntervalContainerView.snp.makeConstraints {
             $0.top.equalTo(daysContainerView.snp.bottom).offset(20)
+            $0.leading.equalToSuperview().offset(20)
+            $0.trailing.equalToSuperview().offset(-20)
+            $0.height.equalTo(60)
+        }
+
+        repeatIntervalContainerView.addSubview(repeatIntervalLabel)
+        repeatIntervalLabel.snp.makeConstraints {
+            $0.leading.top.equalToSuperview()
+        }
+
+        repeatIntervalContainerView.addSubview(repeatIntervalSegmentedControl)
+        repeatIntervalSegmentedControl.snp.makeConstraints {
+            $0.top.equalTo(repeatIntervalLabel.snp.bottom).offset(10)
+            $0.leading.trailing.bottom.equalToSuperview()
+            $0.height.equalTo(30)
+        }
+
+        colorsContainerView.snp.makeConstraints {
+            $0.top.equalTo(repeatIntervalContainerView.snp.bottom).offset(20)
             $0.leading.equalToSuperview().offset(20)
             $0.trailing.equalToSuperview().offset(-20)
             $0.height.equalTo(60)
