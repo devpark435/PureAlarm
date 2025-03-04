@@ -29,7 +29,6 @@ class AlarmNotificationManager {
     }
     
     /// 알람 예약
-    // AlarmNotificationManager.swift의 scheduleAlarm 메소드 수정
     func scheduleAlarm(alarm: Alarm, completion: @escaping (Bool) -> Void) {
         // 알람이 활성화되어 있지 않으면 예약하지 않음
         guard alarm.isActive else {
@@ -42,27 +41,27 @@ class AlarmNotificationManager {
         
         // 주간 반복 알람인 경우
         if !alarm.days.isEmpty {
-            // 기존 로직으로 요일별 알람 처리
             let content = UNMutableNotificationContent()
             content.title = alarm.title.isEmpty ? "알람" : alarm.title
             content.body = "지금 시간: \(formatTime(date: Date()))"
             content.sound = UNNotificationSound.default
-            content.userInfo = ["alarm_id": alarm.id.uuidString]
+            content.userInfo = [
+                "alarm_id": alarm.id.uuidString,
+                "snooze_interval": alarm.repeatInterval // 스누즈 간격 정보 추가
+            ]
             content.categoryIdentifier = "ALARM_CATEGORY"
             
             scheduleRepeatingAlarm(alarm: alarm, content: content, completion: completion)
             return
         }
         
-        // 반복 간격이 설정된 경우 (0이 아님)
-        if alarm.repeatInterval > 0 {
-            scheduleBatchNotifications(for: alarm, count: 30, intervalSeconds: alarm.repeatInterval * 60) // 분을 초로 변환
-            completion(true)
-            return
-        }
-        
-        // 일회성 알람인 경우 (반복 없음)
-        scheduleBatchNotifications(for: alarm, count: 30, intervalSeconds: 2) // 기존 2초 간격 유지
+        // 일회성 또는 스누즈 알람인 경우 - 항상 2초 간격으로 30회 반복
+        scheduleBatchNotifications(
+            for: alarm,
+            count: 30,
+            intervalSeconds: 2,
+            snoozeInterval: alarm.repeatInterval
+        )
         completion(true)
     }
     
@@ -103,7 +102,7 @@ class AlarmNotificationManager {
     }
     
     /// 여러 번 반복되는 알림을 예약합니다
-    func scheduleBatchNotifications(for alarm: Alarm, count: Int = 30, intervalSeconds: Int = 2) {
+    func scheduleBatchNotifications(for alarm: Alarm, count: Int = 30, intervalSeconds: Int = 2, snoozeInterval: Int = 0) {
         guard alarm.isActive else { return }
         
         // 기본 알람 알림 내용
@@ -142,7 +141,8 @@ class AlarmNotificationManager {
             content.userInfo = [
                 "alarm_id": alarm.id.uuidString,
                 "notification_sequence": i,
-                "original_alarm_time": alarmDate.timeIntervalSince1970
+                "original_alarm_time": alarmDate.timeIntervalSince1970,
+                "snooze_interval": snoozeInterval
             ]
             
             // 첫 번째는 원래 알람 시간, 나머지는 간격을 두고 추가
@@ -170,6 +170,70 @@ class AlarmNotificationManager {
                 }
             }
         }
+        
+        // 마지막 알림 이후 자동 스누즈 알림 예약 - 한 번만 실행
+        if let lastNotificationTime = calendar.date(byAdding: .second, value: (count-1) * intervalSeconds, to: alarmDate) {
+            // 자동 스누즈 알림 설정
+            scheduleAutoSnoozeNotification(for: alarm, after: lastNotificationTime)
+        }
+    }
+
+    /// 자동 스누즈 알림 설정 (마지막 배치 알림 이후)
+    private func scheduleAutoSnoozeNotification(for alarm: Alarm, after date: Date) {
+        // 스누즈 간격 결정 (0이면 기본값 5분 사용)
+        let snoozeMinutes = alarm.repeatInterval > 0 ? alarm.repeatInterval : 5
+        
+        // 스누즈 알림용 컨텐츠 생성
+        let content = UNMutableNotificationContent()
+        content.title = "알람이 자동으로 스누즈 되었습니다"
+        content.body = "알람을 해제하지 않아 \(snoozeMinutes)분 후에 다시 알림이 울립니다. 지금 시간: \(formatTime(date: Date()))"
+        content.sound = UNNotificationSound.default
+        content.userInfo = [
+            "alarm_id": alarm.id.uuidString,
+            "is_auto_snooze_notification": true
+        ]
+        content.categoryIdentifier = "ALARM_CATEGORY"
+        
+        // 알림 트리거 생성 (2초 후)
+        let calendar = Calendar.current
+        let notificationDate = calendar.date(byAdding: .second, value: 2, to: date) ?? date
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: notificationDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        
+        // 알림 요청 생성
+        let requestId = "\(alarm.id.uuidString)-auto-snooze-notification"
+        let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
+        
+        // 알림 등록
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("자동 스누즈 알림 등록 오류: \(error.localizedDescription)")
+            } else {
+                print("자동 스누즈 알림 등록 성공: \(notificationDate)")
+            }
+        }
+        
+        // 실제 스누즈 알람 설정 (지정된 분 후)
+        scheduleAutoSnoozeAlarm(for: alarm, minutes: snoozeMinutes, after: date)
+    }
+
+    /// 자동 스누즈 알람 설정
+    private func scheduleAutoSnoozeAlarm(for alarm: Alarm, minutes: Int, after date: Date) {
+        let calendar = Calendar.current
+        guard let snoozeDate = calendar.date(byAdding: .minute, value: minutes, to: date) else {
+            print("스누즈 시간 계산 오류")
+            return
+        }
+        
+        // 스누즈된 알람 객체 생성
+        var snoozeAlarm = alarm
+        snoozeAlarm.time = snoozeDate
+        snoozeAlarm.title = "\(alarm.title) (자동 스누즈)"
+        
+        // 스누즈 알람도 2초 간격으로 30회 반복 알림 설정
+        scheduleBatchNotifications(for: snoozeAlarm, count: 30, intervalSeconds: 2, snoozeInterval: alarm.repeatInterval)
+        
+        print("자동 스누즈 알람 설정 완료: \(minutes)분 후 (현지 시간: \(formatTime(date: snoozeDate)))")
     }
     
     // 알람 ID로 알람 정보 가져오기 (internal로 변경)
@@ -393,20 +457,20 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         
         // 메인 스레드에서 실행
         DispatchQueue.main.async {
-                let alarmRingVC = AlarmRingViewController(alarm: alarm)
-                alarmRingVC.modalPresentationStyle = .fullScreen
-                
-                guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
-                    print("새로운 윈도우 생성 실패")
-                    return
-                }
-                
-                self.alarmWindow = UIWindow(windowScene: scene)
-                self.alarmWindow?.rootViewController = alarmRingVC
-                self.alarmWindow?.makeKeyAndVisible()
-                
-                print("새로운 윈도우에서 알람 화면 표시 완료")
+            let alarmRingVC = AlarmRingViewController(alarm: alarm)
+            alarmRingVC.modalPresentationStyle = .fullScreen
+            
+            guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+                print("새로운 윈도우 생성 실패")
+                return
             }
+            
+            self.alarmWindow = UIWindow(windowScene: scene)
+            self.alarmWindow?.rootViewController = alarmRingVC
+            self.alarmWindow?.makeKeyAndVisible()
+            
+            print("새로운 윈도우에서 알람 화면 표시 완료")
+        }
     }
 }
 
