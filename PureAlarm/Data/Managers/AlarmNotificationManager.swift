@@ -113,7 +113,7 @@ class AlarmNotificationManager {
     /// 여러 번 반복되는 알림을 예약합니다
     func scheduleBatchNotifications(
         for alarm: Alarm,
-        count: Int = 30,
+        count: Int = 15,
         intervalSeconds: Int = 2,
         snoozeInterval: Int = 0,
         maxAutoSnoozeCount: Int = 5,
@@ -136,33 +136,28 @@ class AlarmNotificationManager {
             }
         }
         
+        // 기존 알림 모두 취소 (충돌 방지)
+        cancelAlarm(alarmId: alarm.id)
+        
         // 기본 알람 알림 내용
         let baseContent = UNMutableNotificationContent()
         baseContent.title = alarm.title.isEmpty ? "알람" : alarm.title
         baseContent.sound = UNNotificationSound.default
         baseContent.categoryIdentifier = "ALARM_CATEGORY"
         
-        // 첫 번째 알람은 특별히 다루기
+        // 첫 번째 알람은 특별히 다루기 - 강조된 제목과 내용
         let firstAlarmContent = baseContent.mutableCopy() as! UNMutableNotificationContent
-        firstAlarmContent.body = "알람이 울렸습니다! 지금 시간: \(formatTime(date: Date()))"
+        firstAlarmContent.title = "⏰ 알람 시간입니다!"  // 이모지와 명확한 제목 추가
+        firstAlarmContent.body = "지금 시간: \(formatTime(date: Date()))"
+        firstAlarmContent.sound = UNNotificationSound.default  // 소리 중복 확인
         firstAlarmContent.userInfo = [
             "alarm_id": alarm.id.uuidString,
             "notification_sequence": 0,
             "original_alarm_time": alarmDate.timeIntervalSince1970,
             "snooze_interval": snoozeInterval,
-            "auto_snooze_count": currentAutoSnoozeCount
+            "auto_snooze_count": currentAutoSnoozeCount,
+            "is_first_alarm": true  // 첫 번째 알람 표시자 추가
         ]
-        
-        // 오늘 날짜에 알람 시간 설정
-        if alarm.days.isEmpty {
-            alarmDate = combineDateAndTime(Date(), alarm.time)
-            // 이미 지난 시간이면 다음 날로 설정
-            if alarmDate < Date() {
-                if let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: Date()) {
-                    alarmDate = combineDateAndTime(nextDay, alarm.time)
-                }
-            }
-        }
         
         // 여러 개의 알림 예약
         for i in 0..<count {
@@ -193,8 +188,9 @@ class AlarmNotificationManager {
             let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: triggerDate)
             let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
             
-            // 알림 요청 생성
-            let requestId = "\(alarm.id.uuidString)-seq\(i)"
+            // 알림 요청 생성 - 식별자에 timestamp 추가하여 순서 보장
+            let timestamp = Int(Date().timeIntervalSince1970)
+            let requestId = "\(alarm.id.uuidString)-seq\(i)-\(timestamp)"
             let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
             
             // 알림 등록
@@ -571,7 +567,7 @@ extension AppDelegate {
             options: [.destructive, .foreground]  // .foreground 옵션 추가
         )
         
-        // 알람 카테고리 생성
+        // 알림 카테고리 생성 - 특별한 알람 카테고리 추가
         let alarmCategory = UNNotificationCategory(
             identifier: "ALARM_CATEGORY",
             actions: [snoozeAction, stopAction],
@@ -579,7 +575,15 @@ extension AppDelegate {
             options: [.customDismissAction]
         )
         
+        // 중요 알람 카테고리 생성
+        let importantAlarmCategory = UNNotificationCategory(
+            identifier: "IMPORTANT_ALARM_CATEGORY",
+            actions: [snoozeAction, stopAction],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+        
         // 카테고리 등록
-        UNUserNotificationCenter.current().setNotificationCategories([alarmCategory])
+        UNUserNotificationCenter.current().setNotificationCategories([alarmCategory, importantAlarmCategory])
     }
 }
