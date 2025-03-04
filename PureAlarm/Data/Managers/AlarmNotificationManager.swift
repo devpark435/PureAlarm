@@ -214,17 +214,10 @@ class AlarmNotificationManager {
     }
     
     private func isAlarmStopped(_ alarmId: UUID) -> Bool {
+        // 단순화된 로직: 중지 플래그가 있으면 중지된 것으로 간주
         if let stopTime = stoppedAlarmTimes[alarmId] {
-            // 1초 이내의 중지 플래그는 무시 (중지 플래그와 초기화 간의 경쟁 상태 방지)
-            let elapsed = Date().timeIntervalSince(stopTime)
-            let isStopped = elapsed > 1.0
-            
-            if isStopped {
-                print("알람 \(alarmId)는 \(Int(elapsed))초 전에 중지됨 (중지됨)")
-            } else {
-                print("알람 \(alarmId)는 방금(\(elapsed)초 전) 중지됨 (무시함)")
-            }
-            return isStopped
+            print("알람 \(alarmId)는 중지됨 (시간: \(stopTime))")
+            return true
         }
         return false
     }
@@ -305,7 +298,7 @@ class AlarmNotificationManager {
                 return
             }
             
-            // 중지 플래그 재확인 (초기화 했으므로 대부분 false일 것임)
+            // 중지 플래그 재확인
             if self.isAlarmStopped(alarmId) {
                 print("알람 \(alarmId)는 타이머 대기 중 다시 중지됨, 반복 취소")
                 return
@@ -383,29 +376,14 @@ class AlarmNotificationManager {
                 DispatchQueue.main.asyncAfter(deadline: .now() + nextCheckDelay) { [weak self] in
                     guard let self = self else { return }
                     
-                    // 중지 플래그 확인 전에 연속된 알람 ID도 확인
-                    // 이 ID로 직접 지정된 중지 플래그가 있거나 원본 알람 ID로 지정된 중지 플래그가 있는지 확인
+                    // 오직 중지 플래그만 확인
                     if self.stoppedAlarmTimes[alarmId] != nil {
                         print("알람 \(alarmId) 반복 체크: 이미 중지됨, 추가 반복 취소")
                         return
                     }
                     
-                    // 요청 후 중지되었는지 한 번 더 확인 - 반복 알람 요청이 예약된 이후 사용자가 알람을 껐을 수 있음
-                    UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
-                        // 이 알람 ID와 관련된 알림이 하나라도 있는지 확인 (없으면 사용자가 모두 취소한 것)
-                        let hasRelatedRequests = requests.contains {
-                            $0.identifier.contains(alarmId.uuidString) ||
-                            ($0.content.userInfo["alarm_id"] as? String) == alarmId.uuidString
-                        }
-                        
-                        if !hasRelatedRequests {
-                            print("알람 \(alarmId) 관련 알림이 모두 취소됨, 추가 반복 취소")
-                            return
-                        }
-                        
-                        print("알람 \(alarmId) 반복 체크: 아직 활성, 다음 반복 알람 예약")
-                        self.startRepeatingAlarms(for: alarm)  // 재귀적으로 계속 반복
-                    }
+                    print("알람 \(alarmId) 반복 체크: 아직 활성, 다음 반복 알람 예약")
+                    self.startRepeatingAlarms(for: alarm)  // 재귀적으로 계속 반복
                 }
             }
         }
@@ -422,14 +400,9 @@ class AlarmNotificationManager {
             return
         }
         
-        // 디버깅을 위해 실제 알림 상태도 로깅
-        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
-            let relatedRequests = requests.filter { $0.identifier.contains(alarmId.uuidString) }
-            print("알람 \(alarmId) 상태: 활성화됨(중지되지 않음), 관련 알림: \(relatedRequests.count)개")
-            
-            // 명시적으로 중지되지 않은 경우는 항상 활성으로 간주 (반복 계속)
-            completion(true)
-        }
+        // 명시적으로 중지되지 않은 경우는 항상 활성으로 간주 (반복 계속)
+        print("알람 \(alarmId)는 중지되지 않음, 반복 계속")
+        completion(true)
     }
     
     // 알람 ID로 알람 정보 가져오기
@@ -442,7 +415,6 @@ class AlarmNotificationManager {
         
         // 저장소에서 찾지 못한 경우 nil 반환
         print("저장소에서 알람을 찾지 못함: \(alarmId)")
-        // 알람을 찾지 못했을 때는 nil 반환
         return nil
     }
     
@@ -563,7 +535,7 @@ class AlarmNotificationManager {
                             
                             // 안전하게 메인 스레드에서 실행
                             DispatchQueue.main.async {
-                                self.scheduleRepetitionTimer(for: alarm, initialDelay: 30) // 초기 알람 후 15초 대기
+                                self.scheduleRepetitionTimer(for: alarm, initialDelay: 30) // 초기 알람 후 30초 대기
                             }
                         }
                     }
@@ -748,7 +720,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                 print("알람 정보를 찾을 수 없음, 스누즈 설정 불가")
             }
             
-            
         case "STOP_ACTION":
             // 알람 중지 액션
             print("알람 중지 액션 - 모든 관련 알림 취소")
@@ -794,6 +765,9 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         }
         
         print("알람 정보 가져오기 성공: \(alarm.title)")
+        
+        // 명시적으로 알람 중지 플래그 설정 및 관련 알림 모두 취소
+        AlarmNotificationManager.shared.cancelAlarm(alarmId: alarmId)
         
         // 메인 스레드에서 실행
         DispatchQueue.main.async {
