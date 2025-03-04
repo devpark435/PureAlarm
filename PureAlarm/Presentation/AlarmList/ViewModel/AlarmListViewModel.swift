@@ -148,9 +148,15 @@ final class AlarmListViewModel {
     
     // 알림 예약
     private func scheduleAlarmNotification(_ alarm: Alarm) {
-        AlarmNotificationManager.shared.scheduleAlarm(alarm: alarm) { success in
+        AlarmNotificationManager.shared.scheduleAlarm(alarm: alarm) { success, reason in
             if !success {
-                self.errorBinding?("알람 예약에 실패했습니다.")
+                // 실패 이유가 중복 처리인 경우 오류 메시지를 표시하지 않음
+                if case .duplicateProcessing = reason {
+                    print("알람이 이미 처리 중입니다 - 무시")
+                } else {
+                    // 실제 오류인 경우에만 오류 메시지 표시
+                    self.errorBinding?("알람 예약에 실패했습니다.")
+                }
             } else {
                 print("알람 예약 성공: \(alarm.title), 시간: \(alarm.time)")
             }
