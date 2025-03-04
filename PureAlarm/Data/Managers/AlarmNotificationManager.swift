@@ -29,6 +29,7 @@ class AlarmNotificationManager {
     }
     
     /// 알람 예약
+    // AlarmNotificationManager.swift의 scheduleAlarm 메소드 수정
     func scheduleAlarm(alarm: Alarm, completion: @escaping (Bool) -> Void) {
         // 알람이 활성화되어 있지 않으면 예약하지 않음
         guard alarm.isActive else {
@@ -39,22 +40,30 @@ class AlarmNotificationManager {
         // 먼저 기존 알람 관련 알림들 취소
         cancelAlarm(alarmId: alarm.id)
         
-        // 반복 알람이 아닌 경우 여러 개의 알림을 미리 예약
-        if alarm.days.isEmpty {
-            scheduleBatchNotifications(for: alarm, count: 30, intervalSeconds: 2) // 2초 간격으로 30회 반복
+        // 주간 반복 알람인 경우
+        if !alarm.days.isEmpty {
+            // 기존 로직으로 요일별 알람 처리
+            let content = UNMutableNotificationContent()
+            content.title = alarm.title.isEmpty ? "알람" : alarm.title
+            content.body = "지금 시간: \(formatTime(date: Date()))"
+            content.sound = UNNotificationSound.default
+            content.userInfo = ["alarm_id": alarm.id.uuidString]
+            content.categoryIdentifier = "ALARM_CATEGORY"
+            
+            scheduleRepeatingAlarm(alarm: alarm, content: content, completion: completion)
+            return
+        }
+        
+        // 반복 간격이 설정된 경우 (0이 아님)
+        if alarm.repeatInterval > 0 {
+            scheduleBatchNotifications(for: alarm, count: 30, intervalSeconds: alarm.repeatInterval * 60) // 분을 초로 변환
             completion(true)
             return
         }
         
-        // 반복 알람인 경우 기존 로직 유지
-        let content = UNMutableNotificationContent()
-        content.title = alarm.title.isEmpty ? "알람" : alarm.title
-        content.body = "지금 시간: \(formatTime(date: Date()))"
-        content.sound = UNNotificationSound.default
-        content.userInfo = ["alarm_id": alarm.id.uuidString]
-        content.categoryIdentifier = "ALARM_CATEGORY"
-        
-        scheduleRepeatingAlarm(alarm: alarm, content: content, completion: completion)
+        // 일회성 알람인 경우 (반복 없음)
+        scheduleBatchNotifications(for: alarm, count: 30, intervalSeconds: 2) // 기존 2초 간격 유지
+        completion(true)
     }
     
     /// 알람 취소
