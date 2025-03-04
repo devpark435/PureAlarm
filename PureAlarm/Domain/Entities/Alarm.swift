@@ -8,7 +8,7 @@
 import Foundation
 import UIKit
 
-struct Alarm {
+struct Alarm: Codable {
     let id: UUID
     var title: String
     var time: Date
@@ -17,19 +17,23 @@ struct Alarm {
     var sound: String
     var vibration: Bool
     var snooze: Bool
-    var color: UIColor
+    private var colorData: ColorData
     
-    init(
-        id: UUID = UUID(),
-        title: String,
-        time: Date,
-        days: [WeekDay] = [],
-        isActive: Bool = true,
-        sound: String = "Default",
-        vibration: Bool = true,
-        snooze: Bool = true,
-        color: UIColor = UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
-    ) {
+    var color: UIColor {
+        get {
+            return UIColor(red: colorData.red, green: colorData.green, blue: colorData.blue, alpha: colorData.alpha)
+        }
+        set {
+            var red: CGFloat = 0
+            var green: CGFloat = 0
+            var blue: CGFloat = 0
+            var alpha: CGFloat = 0
+            newValue.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+            colorData = ColorData(red: red, green: green, blue: blue, alpha: alpha)
+        }
+    }
+    
+    init(id: UUID = UUID(), title: String, time: Date, days: [WeekDay] = [], isActive: Bool = true, sound: String = "Default", vibration: Bool = true, snooze: Bool = true, color: UIColor = UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)) {
         self.id = id
         self.title = title
         self.time = time
@@ -38,11 +42,25 @@ struct Alarm {
         self.sound = sound
         self.vibration = vibration
         self.snooze = snooze
-        self.color = color
+        
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        self.colorData = ColorData(red: red, green: green, blue: blue, alpha: alpha)
+    }
+    
+    // 색상 저장을 위한 내부 구조체
+    struct ColorData: Codable {
+        let red: CGFloat
+        let green: CGFloat
+        let blue: CGFloat
+        let alpha: CGFloat
     }
 }
 
-enum WeekDay: Int, CaseIterable {
+enum WeekDay: Int, Codable, CaseIterable {
     case sunday = 1
     case monday = 2
     case tuesday = 3

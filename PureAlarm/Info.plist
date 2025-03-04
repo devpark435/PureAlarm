@@ -19,5 +19,21 @@
 			</array>
 		</dict>
 	</dict>
+    <!-- 백그라운드 모드 설정 -->
+    <key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+        <string>processing</string>
+		<string>remote-notification</string>
+	</array>
+    <!-- 백그라운드 작업 식별자 -->
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>com.purealarm.refresh</string>
+    </array>
+
+    <!-- 알림 카테고리 (알림 확장을 위한 설정) -->
+    <key>UIUserNotificationCategory</key>
+    <string>ALARM_CATEGORY</string>
 </dict>
 </plist>

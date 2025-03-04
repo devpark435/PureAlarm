@@ -27,6 +27,14 @@
 		D60856D02D6F3E4F00AA48B8 /* AlarmDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856CF2D6F3E4F00AA48B8 /* AlarmDetailViewController.swift */; };
 		D60856D32D6F44CD00AA48B8 /* MainTabBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856D22D6F44CD00AA48B8 /* MainTabBarController.swift */; };
 		D60856D72D6F44FC00AA48B8 /* SleepManagementViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856D62D6F44FC00AA48B8 /* SleepManagementViewController.swift */; };
+		D60856DA2D70182300AA48B8 /* AlarmListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856D92D70182300AA48B8 /* AlarmListViewModel.swift */; };
+		D60856DD2D70187700AA48B8 /* AlarmDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856DC2D70187700AA48B8 /* AlarmDetailViewModel.swift */; };
+		D60856E12D70290D00AA48B8 /* AlarmNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856E02D70290D00AA48B8 /* AlarmNotificationManager.swift */; };
+		D60856E52D70293C00AA48B8 /* AlarmRingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856E42D70293C00AA48B8 /* AlarmRingViewController.swift */; };
+		D60856E82D71B7A400AA48B8 /* AlarmStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856E72D71B7A400AA48B8 /* AlarmStorage.swift */; };
+		D60856EA2D71B92C00AA48B8 /* AlarmRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856E92D71B92C00AA48B8 /* AlarmRepository.swift */; };
+		D60856ED2D71B97700AA48B8 /* AlarmRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856EC2D71B97700AA48B8 /* AlarmRepositoryProtocol.swift */; };
+		D60856F12D74890A00AA48B8 /* LaunchScreenViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856F02D74890A00AA48B8 /* LaunchScreenViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,6 +58,14 @@
 		D60856CF2D6F3E4F00AA48B8 /* AlarmDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmDetailViewController.swift; sourceTree = "<group>"; };
 		D60856D22D6F44CD00AA48B8 /* MainTabBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabBarController.swift; sourceTree = "<group>"; };
 		D60856D62D6F44FC00AA48B8 /* SleepManagementViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepManagementViewController.swift; sourceTree = "<group>"; };
+		D60856D92D70182300AA48B8 /* AlarmListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmListViewModel.swift; sourceTree = "<group>"; };
+		D60856DC2D70187700AA48B8 /* AlarmDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmDetailViewModel.swift; sourceTree = "<group>"; };
+		D60856E02D70290D00AA48B8 /* AlarmNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmNotificationManager.swift; sourceTree = "<group>"; };
+		D60856E42D70293C00AA48B8 /* AlarmRingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmRingViewController.swift; sourceTree = "<group>"; };
+		D60856E72D71B7A400AA48B8 /* AlarmStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmStorage.swift; sourceTree = "<group>"; };
+		D60856E92D71B92C00AA48B8 /* AlarmRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmRepository.swift; sourceTree = "<group>"; };
+		D60856EC2D71B97700AA48B8 /* AlarmRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmRepositoryProtocol.swift; sourceTree = "<group>"; };
+		D60856F02D74890A00AA48B8 /* LaunchScreenViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +100,7 @@
 		D608568F2D6F2D7D00AA48B8 /* PureAlarm */ = {
 			isa = PBXGroup;
 			children = (
+				D60856DE2D7028FB00AA48B8 /* Data */,
 				D60856B52D6F33FF00AA48B8 /* Common */,
 				D60856AE2D6F33A600AA48B8 /* Domain */,
 				D60856A42D6F2EFC00AA48B8 /* Application */,
@@ -106,6 +123,8 @@
 		D60856A52D6F2F1700AA48B8 /* Presentation */ = {
 			isa = PBXGroup;
 			children = (
+				D60856EE2D7488F300AA48B8 /* Launch */,
+				D60856E22D70292D00AA48B8 /* AlarmRing */,
 				D60856D42D6F44E200AA48B8 /* SleepManagement */,
 				D60856D12D6F44BE00AA48B8 /* TabBar */,
 				D60856CD2D6F3E4200AA48B8 /* AlarmDetail */,
@@ -117,6 +136,7 @@
 		D60856A62D6F2F3C00AA48B8 /* AlarmList */ = {
 			isa = PBXGroup;
 			children = (
+				D60856D82D70181500AA48B8 /* ViewModel */,
 				D60856A72D6F2F4100AA48B8 /* View */,
 			);
 			path = AlarmList;
@@ -136,6 +156,7 @@
 		D60856AE2D6F33A600AA48B8 /* Domain */ = {
 			isa = PBXGroup;
 			children = (
+				D60856EB2D71B96800AA48B8 /* Repositories */,
 				D60856AF2D6F33AC00AA48B8 /* Entities */,
 				D60856B02D6F33B400AA48B8 /* UseCases */,
 			);
@@ -190,6 +211,7 @@
 		D60856CD2D6F3E4200AA48B8 /* AlarmDetail */ = {
 			isa = PBXGroup;
 			children = (
+				D60856DB2D70186B00AA48B8 /* ViewModel */,
 				D60856CE2D6F3E4800AA48B8 /* View */,
 			);
 			path = AlarmDetail;
@@ -223,6 +245,88 @@
 			isa = PBXGroup;
 			children = (
 				D60856D62D6F44FC00AA48B8 /* SleepManagementViewController.swift */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
+		D60856D82D70181500AA48B8 /* ViewModel */ = {
+			isa = PBXGroup;
+			children = (
+				D60856D92D70182300AA48B8 /* AlarmListViewModel.swift */,
+			);
+			path = ViewModel;
+			sourceTree = "<group>";
+		};
+		D60856DB2D70186B00AA48B8 /* ViewModel */ = {
+			isa = PBXGroup;
+			children = (
+				D60856DC2D70187700AA48B8 /* AlarmDetailViewModel.swift */,
+			);
+			path = ViewModel;
+			sourceTree = "<group>";
+		};
+		D60856DE2D7028FB00AA48B8 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				D60856E62D71B79C00AA48B8 /* Storage */,
+				D60856DF2D70290600AA48B8 /* Managers */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		D60856DF2D70290600AA48B8 /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				D60856E02D70290D00AA48B8 /* AlarmNotificationManager.swift */,
+			);
+			path = Managers;
+			sourceTree = "<group>";
+		};
+		D60856E22D70292D00AA48B8 /* AlarmRing */ = {
+			isa = PBXGroup;
+			children = (
+				D60856E32D70293200AA48B8 /* View */,
+			);
+			path = AlarmRing;
+			sourceTree = "<group>";
+		};
+		D60856E32D70293200AA48B8 /* View */ = {
+			isa = PBXGroup;
+			children = (
+				D60856E42D70293C00AA48B8 /* AlarmRingViewController.swift */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
+		D60856E62D71B79C00AA48B8 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				D60856E72D71B7A400AA48B8 /* AlarmStorage.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		D60856EB2D71B96800AA48B8 /* Repositories */ = {
+			isa = PBXGroup;
+			children = (
+				D60856E92D71B92C00AA48B8 /* AlarmRepository.swift */,
+				D60856EC2D71B97700AA48B8 /* AlarmRepositoryProtocol.swift */,
+			);
+			path = Repositories;
+			sourceTree = "<group>";
+		};
+		D60856EE2D7488F300AA48B8 /* Launch */ = {
+			isa = PBXGroup;
+			children = (
+				D60856EF2D74890600AA48B8 /* View */,
+			);
+			path = Launch;
+			sourceTree = "<group>";
+		};
+		D60856EF2D74890600AA48B8 /* View */ = {
+			isa = PBXGroup;
+			children = (
+				D60856F02D74890A00AA48B8 /* LaunchScreenViewController.swift */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -310,17 +414,25 @@
 				D60856CA2D6F3A0200AA48B8 /* SleepGraphView.swift in Sources */,
 				D60856BA2D6F342500AA48B8 /* Date+Extensions.swift in Sources */,
 				D60856912D6F2D7D00AA48B8 /* AppDelegate.swift in Sources */,
+				D60856EA2D71B92C00AA48B8 /* AlarmRepository.swift in Sources */,
 				D60856932D6F2D7D00AA48B8 /* SceneDelegate.swift in Sources */,
 				D60856D72D6F44FC00AA48B8 /* SleepManagementViewController.swift in Sources */,
+				D60856E12D70290D00AA48B8 /* AlarmNotificationManager.swift in Sources */,
 				D60856C22D6F399500AA48B8 /* CircleButton.swift in Sources */,
+				D60856DD2D70187700AA48B8 /* AlarmDetailViewModel.swift in Sources */,
 				D60856B42D6F33DA00AA48B8 /* AlarmUseCase.swift in Sources */,
 				D60856C62D6F39CF00AA48B8 /* CustomTextField.swift in Sources */,
 				D60856D32D6F44CD00AA48B8 /* MainTabBarController.swift in Sources */,
+				D60856ED2D71B97700AA48B8 /* AlarmRepositoryProtocol.swift in Sources */,
 				D60856C02D6F394700AA48B8 /* GradientView.swift in Sources */,
 				D60856B22D6F33C900AA48B8 /* Alarm.swift in Sources */,
+				D60856F12D74890A00AA48B8 /* LaunchScreenViewController.swift in Sources */,
 				D60856BC2D6F36DC00AA48B8 /* AlarmCollectionViewCell.swift in Sources */,
+				D60856E52D70293C00AA48B8 /* AlarmRingViewController.swift in Sources */,
 				D60856D02D6F3E4F00AA48B8 /* AlarmDetailViewController.swift in Sources */,
+				D60856DA2D70182300AA48B8 /* AlarmListViewModel.swift in Sources */,
 				D60856C82D6F39F700AA48B8 /* SleepSummaryCardView.swift in Sources */,
+				D60856E82D71B7A400AA48B8 /* AlarmStorage.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
