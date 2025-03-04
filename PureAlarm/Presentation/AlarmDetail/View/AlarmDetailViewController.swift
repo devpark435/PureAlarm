@@ -15,7 +15,7 @@ final class AlarmDetailViewController: UIViewController {
     private let viewModel: AlarmDetailViewModel
     private var selectedDays: [WeekDay] = []
     private var selectedColor: UIColor = UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
-    private var selectedRepeatInterval: Int = 0 // 0은 반복 없음, 1, 5, 10, 15 등은 분 단위
+    private var selectedRepeatInterval: Int = 0
     
     // MARK: - UI Components
     private let gradientBackgroundView = GradientView(
@@ -123,14 +123,14 @@ final class AlarmDetailViewController: UIViewController {
     private let repeatIntervalContainerView = UIView().then {
         $0.backgroundColor = .clear
     }
-
+    
     private let repeatIntervalLabel = UILabel().then {
         $0.text = "알람 반복 간격"
         $0.textColor = UIColor(white: 0.7, alpha: 1.0)
         $0.font = .systemFont(ofSize: 14)
     }
-
-    private lazy var repeatIntervalSegmentedControl = UISegmentedControl(items: ["없음", "1분", "5분", "10분", "15분"]).then {
+    
+    private lazy var repeatIntervalSegmentedControl = UISegmentedControl(items: ["없음", "1분", "3분", "5분", "10분"]).then {
         $0.selectedSegmentIndex = 0
         $0.backgroundColor = UIColor(white: 0.2, alpha: 1.0)
         
@@ -262,19 +262,19 @@ final class AlarmDetailViewController: UIViewController {
             $0.trailing.equalToSuperview().offset(-20)
             $0.height.equalTo(60)
         }
-
+        
         repeatIntervalContainerView.addSubview(repeatIntervalLabel)
         repeatIntervalLabel.snp.makeConstraints {
             $0.leading.top.equalToSuperview()
         }
-
+        
         repeatIntervalContainerView.addSubview(repeatIntervalSegmentedControl)
         repeatIntervalSegmentedControl.snp.makeConstraints {
             $0.top.equalTo(repeatIntervalLabel.snp.bottom).offset(10)
             $0.leading.trailing.bottom.equalToSuperview()
             $0.height.equalTo(30)
         }
-
+        
         colorsContainerView.snp.makeConstraints {
             $0.top.equalTo(repeatIntervalContainerView.snp.bottom).offset(20)
             $0.leading.equalToSuperview().offset(20)
@@ -327,6 +327,7 @@ final class AlarmDetailViewController: UIViewController {
         closeButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
         saveButton.addTarget(self, action: #selector(saveButtonTapped), for: .touchUpInside)
         deleteButton.addTarget(self, action: #selector(deleteButtonTapped), for: .touchUpInside)
+        repeatIntervalSegmentedControl.addTarget(self, action: #selector(repeatIntervalChanged(_:)), for: .valueChanged)
         
         // 요일 버튼 액션
         for button in dayButtons {
@@ -355,6 +356,16 @@ final class AlarmDetailViewController: UIViewController {
         
         // 저장 버튼 색상 업데이트
         saveButton.backgroundColor = selectedColor
+        
+        // 반복 간격 업데이트
+        selectedRepeatInterval = viewModel.repeatInterval
+        switch selectedRepeatInterval {
+        case 1: repeatIntervalSegmentedControl.selectedSegmentIndex = 1
+        case 3: repeatIntervalSegmentedControl.selectedSegmentIndex = 2
+        case 5: repeatIntervalSegmentedControl.selectedSegmentIndex = 3
+        case 10: repeatIntervalSegmentedControl.selectedSegmentIndex = 4
+        default: repeatIntervalSegmentedControl.selectedSegmentIndex = 0
+        }
         
         // 요일 버튼 상태 업데이트
         updateDayButtons()
@@ -408,6 +419,7 @@ final class AlarmDetailViewController: UIViewController {
         viewModel.updateTitle(labelTextField.text ?? "알람")
         viewModel.updateTime(localTime) // 수정된 부분
         viewModel.updateDays(selectedDays)
+        viewModel.updateRepeatInterval(selectedRepeatInterval)
         viewModel.updateColor(selectedColor)
         
         // 저장 전 로그 출력 (확인용)
@@ -457,6 +469,23 @@ final class AlarmDetailViewController: UIViewController {
         viewModel.updateDays(selectedDays)
     }
     
+    @objc private func repeatIntervalChanged(_ sender: UISegmentedControl) {
+        // 선택된 인덱스에 따라 반복 간격 설정
+        switch sender.selectedSegmentIndex {
+        case 0: selectedRepeatInterval = 0  // 반복 없음
+        case 1: selectedRepeatInterval = 1  // 1분
+        case 2: selectedRepeatInterval = 3  // 3분
+        case 3: selectedRepeatInterval = 5 // 5분
+        case 4: selectedRepeatInterval = 10 // 10분
+        default: selectedRepeatInterval = 0
+        }
+        
+        // 세그먼트 컨트롤 색상 업데이트
+        if #available(iOS 13.0, *) {
+            repeatIntervalSegmentedControl.selectedSegmentTintColor = selectedColor
+        }
+    }
+    
     @objc private func colorButtonTapped(_ sender: UIButton) {
         // 이전 선택 상태 초기화
         colorButtons.forEach { button in
@@ -476,6 +505,13 @@ final class AlarmDetailViewController: UIViewController {
         
         // 선택된 요일 버튼들의 색상 업데이트
         updateDayButtons()
+        
+        // 선택된 반복 세그먼트 색상 업데이트
+        if #available(iOS 13.0, *) {
+            repeatIntervalSegmentedControl.selectedSegmentTintColor = selectedColor
+        } else {
+            repeatIntervalSegmentedControl.tintColor = selectedColor
+        }
         
         // 뷰모델 업데이트
         viewModel.updateColor(selectedColor)
