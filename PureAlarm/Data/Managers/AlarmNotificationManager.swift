@@ -311,6 +311,7 @@ class AlarmNotificationManager {
     }
     
     // 반복 알람 시작
+    // 반복 알람 시작
     private func startRepeatingAlarms(for alarm: Alarm) {
         let repeatInterval = alarm.repeatInterval
         let alarmId = alarm.id
@@ -330,61 +331,99 @@ class AlarmNotificationManager {
         let repeatDate = Date().addingTimeInterval(TimeInterval(repeatInterval * 60))
         print("다음 반복 알람 예약: \(formatTime(date: repeatDate)) (\(repeatInterval)분 후)")
         
-        // 반복 알람용 콘텐츠 생성
-        let content = UNMutableNotificationContent()
-        content.title = "⏰ 놓친 알람"
-        content.body = "\(alarm.title) 알람을 확인해주세요!"
-        content.sound = UNNotificationSound.default
-        content.categoryIdentifier = "ALARM_CATEGORY"
-        content.userInfo = [
-            "alarm_id": alarm.id.uuidString,
-            "is_repeat": true,
-            "timestamp": Date().timeIntervalSince1970,
-            "repeat_interval": repeatInterval  // 반복 간격 포함
-        ]
+        // 고유한 배치 ID 생성 (모든 알림에 공통으로 사용)
+        let batchId = UUID().uuidString
         
-        // 트리거 생성 (설정된 분 간격)
-        let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: TimeInterval(repeatInterval * 60),
-            repeats: false
-        )
+        // 알람 상태 추적용 카운터
+        var successCount = 0
+        var failureCount = 0
+        let group = DispatchGroup()
         
-        // 반복 알람 요청 생성
-        let requestId = "\(alarm.id.uuidString)-repeat-\(UUID().uuidString)"
-        let request = UNNotificationRequest(
-            identifier: requestId,
-            content: content,
-            trigger: trigger
-        )
+        // 여러 개의 알람 생성 (첫 알람 포함 총 6개)
+        let alarmCount = 6
         
-        // 알림 등록
-        UNUserNotificationCenter.current().add(request) { [weak self] error in
-            guard let self = self else {
-                print("반복 알람 등록 후 self가 nil")
-                return
+        for i in 0..<alarmCount {
+            group.enter()
+            
+            // 알림 내용 설정
+            let content = UNMutableNotificationContent()
+            
+            if i == 0 {
+                // 첫 번째 알람
+                content.title = "⏰ 놓친 알람"
+                content.body = "\(alarm.title) 알람을 확인해주세요!"
+            } else {
+                // 후속 알람
+                content.title = "⏰ 놓친 알람 (반복 \(i))"
+                content.body = "\(alarm.title) 알람을 확인해주세요!"
             }
             
-            if let error = error {
-                print("반복 알람 등록 오류: \(error.localizedDescription)")
+            content.sound = UNNotificationSound.default
+            content.categoryIdentifier = "ALARM_CATEGORY"
+            content.userInfo = [
+                "alarm_id": alarm.id.uuidString,
+                "is_repeat": true,
+                "sequence": i,
+                "timestamp": Date().timeIntervalSince1970,
+                "batch_id": batchId,
+                "repeat_interval": repeatInterval
+            ]
+            
+            // 알람 시간 계산
+            var triggerTime: TimeInterval
+            
+            if i == 0 {
+                // 첫 번째 알람은 repeatInterval 분 후
+                triggerTime = TimeInterval(repeatInterval * 60)
             } else {
-                print("반복 알람 등록 성공 (\(repeatInterval)분 후): \(requestId)")
+                // 후속 알람은 첫 알람 이후 2초 간격으로
+                triggerTime = TimeInterval(repeatInterval * 60) + TimeInterval(i * 2)
+            }
+            
+            // 트리거 생성
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: triggerTime, repeats: false)
+            
+            // 고유 식별자 생성
+            let requestId = i == 0
+                ? "\(alarm.id.uuidString)-repeat-main-\(batchId)"
+                : "\(alarm.id.uuidString)-repeat-follow-\(i)-\(batchId)"
+            
+            // 알림 요청 생성
+            let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
+            
+            // 알림 등록
+            UNUserNotificationCenter.current().add(request) { error in
+                defer { group.leave() }
                 
-                // 이 반복 알람이 표시된 후, 사용자가 여전히 응답하지 않는 경우에 대비하여
-                // 다음 반복 알람 예약
-                let nextCheckDelay = TimeInterval(repeatInterval * 60) + 5 // 5초 추가 지연
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + nextCheckDelay) { [weak self] in
-                    guard let self = self else { return }
-                    
-                    // 오직 중지 플래그만 확인
-                    if self.stoppedAlarmTimes[alarmId] != nil {
-                        print("알람 \(alarmId) 반복 체크: 이미 중지됨, 추가 반복 취소")
-                        return
-                    }
-                    
-                    print("알람 \(alarmId) 반복 체크: 아직 활성, 다음 반복 알람 예약")
-                    self.startRepeatingAlarms(for: alarm)  // 재귀적으로 계속 반복
+                if let error = error {
+                    print("반복 알람 \(i) 등록 오류: \(error.localizedDescription)")
+                    failureCount += 1
+                } else {
+                    let triggerDate = Date().addingTimeInterval(triggerTime)
+                    print("반복 알람 \(i) 등록 성공: \(self.formatTime(date: triggerDate)) (ID: \(requestId))")
+                    successCount += 1
                 }
+            }
+        }
+        
+        // 모든 알림 등록 완료 후
+        group.notify(queue: .main) {
+            print("반복 알람 배치 등록 완료 - 성공: \(successCount), 실패: \(failureCount)")
+            
+            // 다음 체크를 위한 딜레이 (현재 반복 간격 + 약간의 추가 시간)
+            let nextCheckDelay = TimeInterval(repeatInterval * 60) + 10
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + nextCheckDelay) { [weak self] in
+                guard let self = self else { return }
+                
+                // 중지 플래그 확인
+                if self.stoppedAlarmTimes[alarmId] != nil {
+                    print("알람 \(alarmId) 반복 체크: 이미 중지됨, 추가 반복 취소")
+                    return
+                }
+                
+                print("알람 \(alarmId) 반복 체크: 아직 활성, 다음 반복 알람 예약")
+                self.startRepeatingAlarms(for: alarm)  // 재귀적으로 계속 반복
             }
         }
     }
