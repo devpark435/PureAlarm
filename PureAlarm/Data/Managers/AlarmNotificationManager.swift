@@ -8,6 +8,7 @@
 import Foundation
 import UserNotifications
 import UIKit
+import AVFoundation
 
 // 알람 예약 실패 이유를 나타내는 열거형
 enum ScheduleFailureReason {
@@ -23,6 +24,16 @@ class AlarmNotificationManager {
     private var processingAlarms = Set<String>()
     private let processingQueue = DispatchQueue(label: "com.purealarm.notification.queue")
     
+    // 오디오 관련 속성 추가
+    private var audioPlayer: AVAudioPlayer?
+    private var isPlayingAlarmSound = false
+    
+    // 백그라운드 작업 식별자
+    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+    
+    // 시스템 사운드를 1초 간격으로 반복 재생하기 위한 타이머
+    private var systemSoundTimer: Timer?
+    
     private init() {}
     
     // MARK: - Public Methods
@@ -36,6 +47,148 @@ class AlarmNotificationManager {
                 return
             }
             completion(granted)
+        }
+    }
+    
+    /// 알람 소리 재생
+    // 알람 소리 재생
+    func playAlarmSound() {
+        guard !isPlayingAlarmSound else {
+            print("알람 소리가 이미 재생 중입니다.")
+            return
+        }
+        
+        // 알람 소리 파일 경로 가져오기
+        guard let soundURL = Bundle.main.url(forResource: "alarm_sound", withExtension: "mp3") else {
+            print("알람 소리 파일을 찾을 수 없습니다. 시스템 사운드를 사용합니다.")
+            
+            // 번들에 소리 파일이 없는 경우 시스템 사운드 사용
+            let systemSoundID: SystemSoundID = 1005 // 시스템 알람 소리
+            AudioServicesPlaySystemSound(systemSoundID)
+            
+            // 시스템 사운드는 한 번만 재생되므로 반복 타이머 설정
+            startSystemSoundRepeatTimer()
+            
+            return
+        }
+        
+        do {
+            // 오디오 세션 설정
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+            
+            // 플레이어 생성 및 재생
+            audioPlayer = try AVAudioPlayer(contentsOf: soundURL)
+            audioPlayer?.numberOfLoops = -1 // 무한 반복
+            audioPlayer?.volume = 1.0
+            audioPlayer?.play()
+            isPlayingAlarmSound = true
+            print("알람 소리 재생 시작")
+        } catch {
+            print("알람 소리 재생 오류: \(error.localizedDescription)")
+            
+            // 오류 발생 시 시스템 사운드 사용
+            let systemSoundID: SystemSoundID = 1005 // 시스템 알람 소리
+            AudioServicesPlaySystemSound(systemSoundID)
+            
+            // 시스템 사운드 반복 타이머 설정
+            startSystemSoundRepeatTimer()
+        }
+    }
+
+    // 시스템 사운드 반복 타이머 시작
+    private func startSystemSoundRepeatTimer() {
+        // 이미 타이머가 실행 중이면 중지
+        stopSystemSoundRepeatTimer()
+        
+        isPlayingAlarmSound = true
+        
+        // 1초 간격으로 시스템 사운드 재생
+        systemSoundTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            // 시스템 알람 사운드 재생
+            let systemSoundID: SystemSoundID = 1005
+            AudioServicesPlaySystemSound(systemSoundID)
+        }
+    }
+
+    // 시스템 사운드 반복 타이머 중지
+    private func stopSystemSoundRepeatTimer() {
+        systemSoundTimer?.invalidate()
+        systemSoundTimer = nil
+    }
+
+    // 알람 소리 중지 (수정)
+    func stopAlarmSound() {
+        guard isPlayingAlarmSound else {
+            return
+        }
+        
+        // 오디오 플레이어 중지
+        audioPlayer?.stop()
+        audioPlayer = nil
+        
+        // 시스템 사운드 타이머 중지
+        stopSystemSoundRepeatTimer()
+        
+        isPlayingAlarmSound = false
+        
+        // 오디오 세션 비활성화
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("오디오 세션 비활성화 오류: \(error.localizedDescription)")
+        }
+        
+        print("알람 소리 재생 중지")
+    }
+    
+    // 특정 시간에 소리를 재생하기 위한 타이머 설정
+    private func scheduleSoundTrigger(for date: Date) {
+        // 현재 시간과 알람 시간의 차이 계산
+        let timeInterval = date.timeIntervalSinceNow
+        
+        // 이미 지난 시간이거나 너무 가까운 시간은 즉시 처리
+        if timeInterval <= 0 {
+            playAlarmSound()
+            return
+        }
+        
+        print("알람 소리 타이머 설정: \(timeInterval)초 후")
+        
+        // 타이머 설정
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeInterval) { [weak self] in
+            guard let self = self else { return }
+            
+            // 백그라운드 작업 시작
+            self.beginBackgroundTask()
+            
+            // 알람 소리 재생
+            self.playAlarmSound()
+        }
+    }
+
+    // 백그라운드 작업 시작
+    private func beginBackgroundTask() {
+        // 이미 실행 중인 백그라운드 작업이 있다면 종료
+        if backgroundTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+        }
+        
+        // 새 백그라운드 작업 시작
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask { [weak self] in
+            guard let self = self else { return }
+            // 시간이 만료되면 작업 종료
+            UIApplication.shared.endBackgroundTask(self.backgroundTaskID)
+            self.backgroundTaskID = .invalid
+        }
+    }
+
+    // 백그라운드 작업 종료
+    private func endBackgroundTask() {
+        if backgroundTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
         }
     }
     
@@ -157,6 +310,12 @@ class AlarmNotificationManager {
         // 알람 ID를 로그로 출력
         print("알람 취소 - 알람 ID: \(alarmId)")
         
+        // 알람 소리 중지
+        stopAlarmSound()
+        
+        // 백그라운드 작업 종료
+        endBackgroundTask()
+        
         // 명시적인 사용자 취소 동작 - 여기서만 중지 플래그 설정 (즉시 동기적으로)
         safelyExecuteOnMainThread {
             let now = Date()
@@ -225,6 +384,13 @@ class AlarmNotificationManager {
     /// 모든 알람 취소
     func cancelAllAlarms() {
         print("모든 알람 취소 요청")
+        
+        // 알람 소리 중지
+        stopAlarmSound()
+        
+        // 백그라운드 작업 종료
+        endBackgroundTask()
+        
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
@@ -385,8 +551,8 @@ class AlarmNotificationManager {
             
             // 고유 식별자 생성
             let requestId = i == 0
-                ? "\(alarm.id.uuidString)-repeat-main-\(batchId)"
-                : "\(alarm.id.uuidString)-repeat-follow-\(i)-\(batchId)"
+            ? "\(alarm.id.uuidString)-repeat-main-\(batchId)"
+            : "\(alarm.id.uuidString)-repeat-follow-\(i)-\(batchId)"
             
             // 알림 요청 생성
             let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
@@ -500,6 +666,9 @@ class AlarmNotificationManager {
         
         // 고유한 배치 ID 생성 (모든 알림에 공통으로 사용)
         let batchId = UUID().uuidString
+        
+        // 알람 시간에 소리 트리거 설정 (첫 알람이 울릴 때)
+        scheduleSoundTrigger(for: alarmDate)
         
         // 먼저 기존의 요청들을 확인
         UNUserNotificationCenter.current().getPendingNotificationRequests { existingRequests in
@@ -700,6 +869,17 @@ extension ScheduleFailureReason {
 extension AppDelegate: UNUserNotificationCenterDelegate {
     
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        
+        // 알림의 내용 확인
+        let userInfo = notification.request.content.userInfo
+        
+        // 알람 ID가 있는지 확인 (알람 노티피케이션인 경우)
+        if let alarmIdString = userInfo["alarm_id"] as? String {
+            print("알람 노티피케이션 표시 - 알람 소리 재생 시작")
+            // 알람 소리 재생
+            AlarmNotificationManager.shared.playAlarmSound()
+        }
+        
         // 앱 실행 중에도 알림 표시
         if #available(iOS 14.0, *) {
             completionHandler([.banner, .sound])
@@ -729,19 +909,25 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         case UNNotificationDefaultActionIdentifier:
             // 기본 액션: 알람 화면 표시
             print("기본 액션: 알람 화면 표시 시도")
+            AlarmNotificationManager.shared.stopAlarmSound()
             showAlarmScreen(for: alarmId)
             
             // 전달된 알림도 모두 제거 (중복 표시 방지)
             UNUserNotificationCenter.current().removeAllDeliveredNotifications()
             
         case UNNotificationDismissActionIdentifier:
-            // 알림 무시: 아무 작업 없음
+            // 알림 무시: 알람 소리 중지
             print("알림 무시됨")
+            AlarmNotificationManager.shared.stopAlarmSound()
             break
             
         case "SNOOZE_ACTION":
             // 스누즈 액션
             print("스누즈 액션 실행")
+            
+            // 알람 소리 중지
+            AlarmNotificationManager.shared.stopAlarmSound()
+                    
             
             // 모든 전달된 알림 제거 (중복 표시 방지)
             UNUserNotificationCenter.current().removeAllDeliveredNotifications()
@@ -762,6 +948,9 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         case "STOP_ACTION":
             // 알람 중지 액션
             print("알람 중지 액션 - 모든 관련 알림 취소")
+            
+            // 알람 소리 중지
+            AlarmNotificationManager.shared.stopAlarmSound()
             
             // 명시적인 중지 플래그 설정 및 알림 취소
             AlarmNotificationManager.shared.cancelAlarm(alarmId: alarmId)
@@ -788,6 +977,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             
         default:
             print("알 수 없는 액션: \(response.actionIdentifier)")
+            AlarmNotificationManager.shared.stopAlarmSound()
             break
         }
         
