@@ -18,6 +18,8 @@ class AlarmRingViewController: UIViewController {
     private var vibrationTimer: Timer?
     private var isSnoozeEnabled: Bool
     
+    var alarmId: UUID!
+    
     // MARK: - UI Components
     private let gradientBackgroundView = GradientView(
         colors: [
@@ -220,6 +222,11 @@ class AlarmRingViewController: UIViewController {
     
     // MARK: - Alarm Functions
     private func startAlarmSound() {
+        // 이미 AlarmNotificationManager에서 소리가 재생 중인지 확인
+        if AlarmNotificationManager.shared.isAlarmSoundPlaying() {
+            print("알람 소리가 이미 재생 중입니다. 새로 시작하지 않습니다.")
+            return
+        }
         // 알람 소리 재생 (예시: 기본 알람 소리)
         guard let soundURL = Bundle.main.url(forResource: "alarm_sound", withExtension: "mp3") else {
             // 번들에 소리 파일이 없는 경우 시스템 사운드 사용
@@ -254,6 +261,13 @@ class AlarmRingViewController: UIViewController {
         // 사운드 정지
         player?.stop()
         player = nil
+        
+        // 알림 매니저의 소리도 정지
+        AlarmNotificationManager.shared.stopAlarmSound()
+        
+        if alarmId != nil {
+            AlarmNotificationManager.shared.cancelAlarm(alarmId: alarmId)
+        }
         
         // 진동 정지
         vibrationTimer?.invalidate()
@@ -322,6 +336,11 @@ class AlarmRingViewController: UIViewController {
     private func dismissAlarm() {
         // 알람 종료
         stopAlarm()
+        
+        // 알람 취소 처리 추가
+        if alarmId != nil {
+            AlarmNotificationManager.shared.cancelAlarm(alarmId: alarmId)
+        }
         
         // 알람 창 닫기
         DispatchQueue.main.async {

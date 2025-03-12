@@ -95,7 +95,12 @@ class AlarmNotificationManager {
             startSystemSoundRepeatTimer()
         }
     }
-
+    
+    // 알람 소리가 재생 중인지 확인
+    func isAlarmSoundPlaying() -> Bool {
+        return isPlayingAlarmSound
+    }
+    
     // 시스템 사운드 반복 타이머 시작
     private func startSystemSoundRepeatTimer() {
         // 이미 타이머가 실행 중이면 중지
@@ -110,13 +115,13 @@ class AlarmNotificationManager {
             AudioServicesPlaySystemSound(systemSoundID)
         }
     }
-
+    
     // 시스템 사운드 반복 타이머 중지
     private func stopSystemSoundRepeatTimer() {
         systemSoundTimer?.invalidate()
         systemSoundTimer = nil
     }
-
+    
     // 알람 소리 중지 (수정)
     func stopAlarmSound() {
         guard isPlayingAlarmSound else {
@@ -166,7 +171,7 @@ class AlarmNotificationManager {
             self.playAlarmSound()
         }
     }
-
+    
     // 백그라운드 작업 시작
     private func beginBackgroundTask() {
         // 이미 실행 중인 백그라운드 작업이 있다면 종료
@@ -183,7 +188,7 @@ class AlarmNotificationManager {
             self.backgroundTaskID = .invalid
         }
     }
-
+    
     // 백그라운드 작업 종료
     private func endBackgroundTask() {
         if backgroundTaskID != .invalid {
@@ -909,7 +914,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         case UNNotificationDefaultActionIdentifier:
             // 기본 액션: 알람 화면 표시
             print("기본 액션: 알람 화면 표시 시도")
-            AlarmNotificationManager.shared.stopAlarmSound()
+            //            AlarmNotificationManager.shared.stopAlarmSound()
             showAlarmScreen(for: alarmId)
             
             // 전달된 알림도 모두 제거 (중복 표시 방지)
@@ -927,7 +932,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             
             // 알람 소리 중지
             AlarmNotificationManager.shared.stopAlarmSound()
-                    
+            
             
             // 모든 전달된 알림 제거 (중복 표시 방지)
             UNUserNotificationCenter.current().removeAllDeliveredNotifications()
@@ -995,24 +1000,24 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         
         print("알람 정보 가져오기 성공: \(alarm.title)")
         
-        // 명시적으로 알람 중지 플래그 설정 및 관련 알림 모두 취소
-        AlarmNotificationManager.shared.cancelAlarm(alarmId: alarmId)
-        
-        // 메인 스레드에서 실행
-        DispatchQueue.main.async {
-            let alarmRingVC = AlarmRingViewController(alarm: alarm)
-            alarmRingVC.modalPresentationStyle = .fullScreen
-            
-            guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
-                print("새로운 윈도우 생성 실패")
-                return
+        // 알람 소리는 유지하면서 알림만 취소
+        AlarmNotificationManager.shared.cancelAlarmNotifications(alarmId: alarmId) {
+            // 알림 취소 완료 후 화면 표시
+            DispatchQueue.main.async {
+                let alarmRingVC = AlarmRingViewController(alarm: alarm)
+                alarmRingVC.modalPresentationStyle = .fullScreen
+                
+                guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+                    print("새로운 윈도우 생성 실패")
+                    return
+                }
+                
+                self.alarmWindow = UIWindow(windowScene: scene)
+                self.alarmWindow?.rootViewController = alarmRingVC
+                self.alarmWindow?.makeKeyAndVisible()
+                
+                print("새로운 윈도우에서 알람 화면 표시 완료")
             }
-            
-            self.alarmWindow = UIWindow(windowScene: scene)
-            self.alarmWindow?.rootViewController = alarmRingVC
-            self.alarmWindow?.makeKeyAndVisible()
-            
-            print("새로운 윈도우에서 알람 화면 표시 완료")
         }
     }
 }
