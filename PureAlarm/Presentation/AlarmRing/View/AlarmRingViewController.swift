@@ -329,30 +329,20 @@ class AlarmRingViewController: UIViewController {
     }
     
     private func scheduleSnooze() {
-        // 현재 시간에서 5분 후 시간 계산 (현지 시간대 고려)
-        let calendar = Date.currentCalendar
-        let now = Date()
-        
-        // 현재 시간에서 5분을 더한 시간
-        guard let snoozeTime = calendar.date(byAdding: .minute, value: 5, to: now) else {
-            print("스누즈 시간 계산 오류")
-            return
-        }
-        
-        // 시간 정보 추출 (디버깅용)
-        let hour = calendar.component(.hour, from: snoozeTime)
-        let minute = calendar.component(.minute, from: snoozeTime)
-        print("스누즈 설정 (현지 시간): \(hour)시 \(minute)분")
+        // 스누즈 시간 (기본 5분)
+        let snoozeMinutes = 1
         
         // AlarmNotificationManager를 통해 스누즈 알람 설정
-        AlarmNotificationManager.shared.scheduleSnoozeAlarm(for: alarm.id, minutes: 5)
+        AlarmNotificationManager.shared.scheduleSnoozeAlarm(for: alarmId ?? alarm.id, minutes: snoozeMinutes)
         
-        // 알람 소리 및 진동 중지
-        stopAlarm()
+        print("스누즈 설정: \(snoozeMinutes)분 후")
         
         // 알람 창 닫기
+        dismissAlarmWindow()
+    }
+    
+    private func dismissAlarmWindow() {
         DispatchQueue.main.async {
-            // 원래 창으로 돌아가기
             if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
                 appDelegate.alarmWindow?.isHidden = true
                 appDelegate.alarmWindow = nil

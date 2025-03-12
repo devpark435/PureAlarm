@@ -34,6 +34,9 @@ class AlarmNotificationManager {
     // 시스템 사운드를 1초 간격으로 반복 재생하기 위한 타이머
     private var systemSoundTimer: Timer?
     
+    // 스누즈 알람 여부를 확인하는 속성
+    private var snoozeAlarmIds = Set<UUID>()
+    
     private init() {}
     
     // MARK: - Public Methods
@@ -160,15 +163,24 @@ class AlarmNotificationManager {
         
         print("알람 소리 타이머 설정: \(timeInterval)초 후")
         
+        // 백그라운드 작업 종료 (이전에 실행 중인 것이 있다면)
+        endBackgroundTask()
+        
+        // 새 백그라운드 작업 시작
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask { [weak self] in
+            // 시간이 만료되면 작업 종료
+            self?.endBackgroundTask()
+        }
+        
         // 타이머 설정
         DispatchQueue.main.asyncAfter(deadline: .now() + timeInterval) { [weak self] in
             guard let self = self else { return }
             
-            // 백그라운드 작업 시작
-            self.beginBackgroundTask()
-            
             // 알람 소리 재생
             self.playAlarmSound()
+            
+            // 백그라운드 작업 종료
+            self.endBackgroundTask()
         }
     }
     
@@ -321,6 +333,9 @@ class AlarmNotificationManager {
         // 백그라운드 작업 종료
         endBackgroundTask()
         
+        // 스누즈 알람 표시 제거
+        snoozeAlarmIds.remove(alarmId)
+        
         // 명시적인 사용자 취소 동작 - 여기서만 중지 플래그 설정 (즉시 동기적으로)
         safelyExecuteOnMainThread {
             let now = Date()
@@ -377,12 +392,16 @@ class AlarmNotificationManager {
         }
     }
     
-    private func isAlarmStopped(_ alarmId: UUID) -> Bool {
+    func isAlarmStopped(_ alarmId: UUID) -> Bool {
+        // 상태 체크 시작 로그
+        print("알람 상태 체크: \(alarmId)")
+        
         // 단순화된 로직: 중지 플래그가 있으면 중지된 것으로 간주
         if let stopTime = stoppedAlarmTimes[alarmId] {
             print("알람 \(alarmId)는 중지됨 (시간: \(stopTime))")
             return true
         }
+        print("알람 \(alarmId)는 활성 상태")
         return false
     }
     
@@ -400,8 +419,17 @@ class AlarmNotificationManager {
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
     
+    // 스누즈 알람인지 확인하는 함수 추가
+    private func isSnoozeAlarm(_ alarmId: UUID) -> Bool {
+        let result = snoozeAlarmIds.contains(alarmId)
+        print("알람 \(alarmId) 스누즈 여부 확인: \(result ? "스누즈 알람" : "일반 알람")")
+        return result
+    }
+    
     /// 스누즈 알람 설정 - 반복 간격은 알람 모델의 repeatInterval 사용
-    func scheduleSnoozeAlarm(for alarmId: UUID, minutes: Int = 5) {
+    func scheduleSnoozeAlarm(for alarmId: UUID, minutes: Int) {
+        print("==== 스누즈 알람 설정 시작: \(alarmId), \(minutes)분 ====")
+        
         // 기존 알람 정보 가져오기
         guard let originalAlarm = getAlarmById(alarmId) else {
             print("스누즈: 알람 정보를 찾을 수 없음, 스누즈 설정 불가: \(alarmId)")
@@ -425,6 +453,13 @@ class AlarmNotificationManager {
             snoozeAlarm.time = snoozeDate
             snoozeAlarm.title = "\(originalAlarm.title) (스누즈)"
             
+            // 스누즈 알람으로 표시
+            self.safelyExecuteOnMainThread {
+                let alreadyExists = self.snoozeAlarmIds.contains(snoozeAlarm.id)
+                self.snoozeAlarmIds.insert(snoozeAlarm.id)
+                print("알람 \(snoozeAlarm.id)를 스누즈 알람으로 표시함 (이미 존재: \(alreadyExists))")
+            }
+            
             // 중지 플래그 초기화 (새 알람이므로 이전 중지 상태를 무시)
             self.resetStopFlag(for: snoozeAlarm.id)
             
@@ -436,9 +471,76 @@ class AlarmNotificationManager {
                     // 스누즈 알람도 반복 타이머 설정
                     if snoozeAlarm.repeatInterval > 0 {
                         print("스누즈: 반복 타이머 설정 - \(snoozeAlarm.repeatInterval)분 간격")
+                        
+                        // 스누즈 알람이 울린 후 반복 타이머 설정 (30초 후에 체크)
+                        let snoozeDelayInSeconds = TimeInterval(minutes * 60)
+                        let checkTime = Date().addingTimeInterval(snoozeDelayInSeconds + 30)
+                        print("스누즈 반복 체크 예약됨: \(self.formatTime(date: checkTime)) (알람 ID: \(snoozeAlarm.id))")
+                        
+                        // 특정 시간에 알람 반복 체크를 트리거하는 별도의 알림 생성
+                        self.scheduleCheckNotification(for: snoozeAlarm, delay: snoozeDelayInSeconds + 30)
+                        
+                        // 백업으로 DispatchQueue도 사용
+                        DispatchQueue.main.asyncAfter(deadline: .now() + snoozeDelayInSeconds + 30) { [weak self] in
+                            guard let self = self else {
+                                print("⚠️ 스누즈 체크 시 self가 nil")
+                                return
+                            }
+                            
+                            print("스누즈 반복 체크 실행됨: \(self.formatTime(date: Date())) (알람 ID: \(snoozeAlarm.id))")
+                            
+                            // 중지 플래그 확인 결과 로깅
+                            let isStopped = self.isAlarmStopped(snoozeAlarm.id)
+                            print("알람 중지 상태: \(isStopped ? "중지됨" : "활성")")
+                            
+                            if !isStopped {
+                                print("스누즈 알람 \(snoozeAlarm.id)에 반응 없음, 반복 알람 시작")
+                                self.startRepeatingAlarms(for: snoozeAlarm)
+                            } else {
+                                print("스누즈 알람 \(snoozeAlarm.id)가 이미 중지되어 반복하지 않음")
+                            }
+                        }
                     }
                 } else {
                     print("스누즈: 알람 설정 실패 - \(reason?.description ?? "알 수 없는 이유")")
+                }
+            }
+        }
+    }
+
+    // 특정 시간 후에 알람 반복 체크를 위한 알림 예약 (새로 추가)
+    private func scheduleCheckNotification(for alarm: Alarm, delay: TimeInterval) {
+        print("### 알람 체크 알림 예약 시작 - 알람 ID: \(alarm.id), 딜레이: \(delay)초")
+        
+        let content = UNMutableNotificationContent()
+        content.categoryIdentifier = "ALARM_CHECK_CATEGORY"
+        content.sound = nil // 소리 없음
+        content.title = "알람 체크" // 실제로는 표시되지 않음
+        content.userInfo = [
+            "alarm_id": alarm.id.uuidString,
+            "is_check": true,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        
+        // 지정된 딜레이 후 트리거
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+        
+        // 요청 생성
+        let requestId = "\(alarm.id.uuidString)-check-\(UUID().uuidString)"
+        let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
+        
+        // 알림 등록
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("### 알람 체크 알림 등록 오류: \(error.localizedDescription)")
+            } else {
+                print("### 알람 체크 알림 등록 성공: \(requestId), 예상 시간: \(Date().addingTimeInterval(delay))")
+                
+                // 현재 등록된 모든 알림 요청 확인
+                UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+                    print("### 현재 등록된 알림 수: \(requests.count)")
+                    let checkRequests = requests.filter { $0.content.userInfo["is_check"] as? Bool == true }
+                    print("### 체크 알림 수: \(checkRequests.count)")
                 }
             }
         }
@@ -482,8 +584,7 @@ class AlarmNotificationManager {
     }
     
     // 반복 알람 시작
-    // 반복 알람 시작
-    private func startRepeatingAlarms(for alarm: Alarm) {
+    func startRepeatingAlarms(for alarm: Alarm) {
         let repeatInterval = alarm.repeatInterval
         let alarmId = alarm.id
         
@@ -498,103 +599,72 @@ class AlarmNotificationManager {
             return
         }
         
+        // 스누즈 알람인 경우 다시 5분 후에 스누즈 알람 설정
+        if isSnoozeAlarm(alarmId) {
+            print("스누즈 알람 \(alarmId)에 반응 없음, 다시 1분 후 스누즈 알람 설정")
+            scheduleSnoozeAlarm(for: alarmId, minutes: 1)
+            return
+        }
+        
         // 첫 번째 반복 알람을 설정된 간격(분) 후에 예약
         let repeatDate = Date().addingTimeInterval(TimeInterval(repeatInterval * 60))
         print("다음 반복 알람 예약: \(formatTime(date: repeatDate)) (\(repeatInterval)분 후)")
         
-        // 고유한 배치 ID 생성 (모든 알림에 공통으로 사용)
-        let batchId = UUID().uuidString
+        // 반복 알람용 콘텐츠 생성
+        let content = UNMutableNotificationContent()
+        content.title = "⏰ 놓친 알람"
+        content.body = "\(alarm.title) 알람을 확인해주세요!"
+        content.sound = UNNotificationSound.default
+        content.categoryIdentifier = "ALARM_CATEGORY"
+        content.userInfo = [
+            "alarm_id": alarm.id.uuidString,
+            "is_repeat": true,
+            "timestamp": Date().timeIntervalSince1970,
+            "repeat_interval": repeatInterval  // 반복 간격 포함
+        ]
         
-        // 알람 상태 추적용 카운터
-        var successCount = 0
-        var failureCount = 0
-        let group = DispatchGroup()
+        // 트리거 생성 (설정된 분 간격)
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: TimeInterval(repeatInterval * 60),
+            repeats: false
+        )
         
-        // 여러 개의 알람 생성 (첫 알람 포함 총 6개)
-        let alarmCount = 6
+        // 반복 알람 요청 생성
+        let requestId = "\(alarm.id.uuidString)-repeat-\(UUID().uuidString)"
+        let request = UNNotificationRequest(
+            identifier: requestId,
+            content: content,
+            trigger: trigger
+        )
         
-        for i in 0..<alarmCount {
-            group.enter()
+        // 알림 등록
+        UNUserNotificationCenter.current().add(request) { [weak self] error in
+            guard let self = self else {
+                print("반복 알람 등록 후 self가 nil")
+                return
+            }
             
-            // 알림 내용 설정
-            let content = UNMutableNotificationContent()
-            
-            if i == 0 {
-                // 첫 번째 알람
-                content.title = "⏰ 놓친 알람"
-                content.body = "\(alarm.title) 알람을 확인해주세요!"
+            if let error = error {
+                print("반복 알람 등록 오류: \(error.localizedDescription)")
             } else {
-                // 후속 알람
-                content.title = "⏰ 놓친 알람 (반복 \(i))"
-                content.body = "\(alarm.title) 알람을 확인해주세요!"
-            }
-            
-            content.sound = UNNotificationSound.default
-            content.categoryIdentifier = "ALARM_CATEGORY"
-            content.userInfo = [
-                "alarm_id": alarm.id.uuidString,
-                "is_repeat": true,
-                "sequence": i,
-                "timestamp": Date().timeIntervalSince1970,
-                "batch_id": batchId,
-                "repeat_interval": repeatInterval
-            ]
-            
-            // 알람 시간 계산
-            var triggerTime: TimeInterval
-            
-            if i == 0 {
-                // 첫 번째 알람은 repeatInterval 분 후
-                triggerTime = TimeInterval(repeatInterval * 60)
-            } else {
-                // 후속 알람은 첫 알람 이후 2초 간격으로
-                triggerTime = TimeInterval(repeatInterval * 60) + TimeInterval(i * 2)
-            }
-            
-            // 트리거 생성
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: triggerTime, repeats: false)
-            
-            // 고유 식별자 생성
-            let requestId = i == 0
-            ? "\(alarm.id.uuidString)-repeat-main-\(batchId)"
-            : "\(alarm.id.uuidString)-repeat-follow-\(i)-\(batchId)"
-            
-            // 알림 요청 생성
-            let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
-            
-            // 알림 등록
-            UNUserNotificationCenter.current().add(request) { error in
-                defer { group.leave() }
+                print("반복 알람 등록 성공 (\(repeatInterval)분 후): \(requestId)")
                 
-                if let error = error {
-                    print("반복 알람 \(i) 등록 오류: \(error.localizedDescription)")
-                    failureCount += 1
-                } else {
-                    let triggerDate = Date().addingTimeInterval(triggerTime)
-                    print("반복 알람 \(i) 등록 성공: \(self.formatTime(date: triggerDate)) (ID: \(requestId))")
-                    successCount += 1
+                // 이 반복 알람이 표시된 후, 사용자가 여전히 응답하지 않는 경우에 대비하여
+                // 다음 반복 알람 예약
+                let nextCheckDelay = TimeInterval(repeatInterval * 60) + 5 // 5초 추가 지연
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + nextCheckDelay) { [weak self] in
+                    guard let self = self else { return }
+                    
+                    // 오직 중지 플래그만 확인
+                    if self.stoppedAlarmTimes[alarmId] != nil {
+                        print("알람 \(alarmId) 반복 체크: 이미 중지됨, 추가 반복 취소")
+                        return
+                    }
+                    
+                    print("알람 \(alarmId) 반복 체크: 아직 활성, 다음 반복 알람 예약")
+                    self.startRepeatingAlarms(for: alarm)  // 재귀적으로 계속 반복
                 }
-            }
-        }
-        
-        // 모든 알림 등록 완료 후
-        group.notify(queue: .main) {
-            print("반복 알람 배치 등록 완료 - 성공: \(successCount), 실패: \(failureCount)")
-            
-            // 다음 체크를 위한 딜레이 (현재 반복 간격 + 약간의 추가 시간)
-            let nextCheckDelay = TimeInterval(repeatInterval * 60) + 10
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + nextCheckDelay) { [weak self] in
-                guard let self = self else { return }
-                
-                // 중지 플래그 확인
-                if self.stoppedAlarmTimes[alarmId] != nil {
-                    print("알람 \(alarmId) 반복 체크: 이미 중지됨, 추가 반복 취소")
-                    return
-                }
-                
-                print("알람 \(alarmId) 반복 체크: 아직 활성, 다음 반복 알람 예약")
-                self.startRepeatingAlarms(for: alarm)  // 재귀적으로 계속 반복
             }
         }
     }
@@ -874,11 +944,29 @@ extension ScheduleFailureReason {
 extension AppDelegate: UNUserNotificationCenterDelegate {
     
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        
         // 알림의 내용 확인
         let userInfo = notification.request.content.userInfo
         
-        // 알람 ID가 있는지 확인 (알람 노티피케이션인 경우)
+        // 알람 체크 알림인 경우 (스누즈 알람 자동 반복 체크)
+        if userInfo["is_check"] as? Bool == true,
+           let alarmIdString = userInfo["alarm_id"] as? String,
+           let alarmId = UUID(uuidString: alarmIdString) {
+            print("알람 체크 알림 받음: \(alarmId)")
+            
+            // 알람이 여전히 활성 상태인지 확인
+            if !AlarmNotificationManager.shared.isAlarmStopped(alarmId) {
+                if let alarm = AlarmNotificationManager.shared.getAlarmById(alarmId) {
+                    print("알람 \(alarmId)에 반응 없음, 반복 알람 시작")
+                    AlarmNotificationManager.shared.startRepeatingAlarms(for: alarm)
+                }
+            }
+            
+            // 체크 알림은 표시하지 않음
+            completionHandler([])
+            return
+        }
+        
+        // 일반 알람 노티피케이션인 경우
         if let alarmIdString = userInfo["alarm_id"] as? String {
             print("알람 노티피케이션 표시 - 알람 소리 재생 시작")
             // 알람 소리 재생
@@ -928,26 +1016,28 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             
         case "SNOOZE_ACTION":
             // 스누즈 액션
-            print("스누즈 액션 실행")
+            print("스누즈 액션 실행 - 알람 ID: \(alarmId)")
             
             // 알람 소리 중지
             AlarmNotificationManager.shared.stopAlarmSound()
             
-            
             // 모든 전달된 알림 제거 (중복 표시 방지)
             UNUserNotificationCenter.current().removeAllDeliveredNotifications()
             
-            // 현재 알람 중지 (더 이상 반복 없음)
-            AlarmNotificationManager.shared.cancelAlarm(alarmId: alarmId)
+            // 아래 라인 주석 처리 - 스누즈 알람의 반복을 위해 중지하지 않음
+            // AlarmNotificationManager.shared.cancelAlarm(alarmId: alarmId)
             
-            // 알람 정보를 가져오고, 이 정보가 있을 때 스누즈 알람을 설정
-            if let originalAlarm = AlarmNotificationManager.shared.getAlarmById(alarmId) {
-                print("스누즈 알람 설정 - 원본 알람: \(originalAlarm.title), 반복 간격: \(originalAlarm.repeatInterval)분")
-                
-                // 스누즈 알람 설정 (5분 후 알람, 원래 알람의 반복 간격 유지)
-                AlarmNotificationManager.shared.scheduleSnoozeAlarm(for: alarmId)
-            } else {
-                print("알람 정보를 찾을 수 없음, 스누즈 설정 불가")
+            // 대신 알림만 취소
+            AlarmNotificationManager.shared.cancelAlarmNotifications(alarmId: alarmId) {
+                // 알람 정보를 가져오고, 이 정보가 있을 때 스누즈 알람을 설정
+                if let originalAlarm = AlarmNotificationManager.shared.getAlarmById(alarmId) {
+                    print("스누즈 알람 설정 - 원본 알람: \(originalAlarm.title), 반복 간격: \(originalAlarm.repeatInterval)분")
+                    
+                    // 스누즈 알람 설정 (1분 후 알람, 원래 알람의 반복 간격 유지)
+                    AlarmNotificationManager.shared.scheduleSnoozeAlarm(for: alarmId, minutes: 1)
+                } else {
+                    print("알람 정보를 찾을 수 없음, 스누즈 설정 불가")
+                }
             }
             
         case "STOP_ACTION":
