@@ -19,11 +19,6 @@ final class AlarmListViewModel {
     // MARK: - Initialization
     init(useCase: AlarmUseCaseProtocol? = nil) {
         self.useCase = useCase
-        
-        // 유스케이스가 없으면 더미 데이터 사용
-        if useCase == nil {
-            setupDummyData()
-        }
     }
     
     // MARK: - Public Methods
@@ -150,48 +145,18 @@ final class AlarmListViewModel {
     }
     
     // MARK: - Private Methods
-    private func setupDummyData() {
-        // 임시 데이터로 테스트
-        let calendar = Calendar.current
-        var dateComponents = DateComponents()
-        dateComponents.hour = 7
-        dateComponents.minute = 30
-        
-        let morningAlarm = Alarm(
-            title: "기상 시간",
-            time: calendar.date(from: dateComponents) ?? Date(),
-            days: [.monday, .tuesday, .wednesday, .thursday, .friday],
-            color: UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
-        )
-        
-        dateComponents.hour = 22
-        dateComponents.minute = 30
-        
-        let nightAlarm = Alarm(
-            title: "취침 준비",
-            time: calendar.date(from: dateComponents) ?? Date(),
-            days: [.monday, .tuesday, .wednesday, .thursday, .friday, .saturday, .sunday],
-            color: UIColor(red: 0.6, green: 0.2, blue: 0.8, alpha: 1.0)
-        )
-        
-        dateComponents.hour = 9
-        dateComponents.minute = 0
-        
-        let weekendAlarm = Alarm(
-            title: "주말 기상",
-            time: calendar.date(from: dateComponents) ?? Date(),
-            days: [.saturday, .sunday],
-            color: UIColor(red: 1.0, green: 0.5, blue: 0.3, alpha: 1.0)
-        )
-        
-        alarms = [morningAlarm, nightAlarm, weekendAlarm]
-    }
     
     // 알림 예약
     private func scheduleAlarmNotification(_ alarm: Alarm) {
-        AlarmNotificationManager.shared.scheduleAlarm(alarm: alarm) { success in
+        AlarmNotificationManager.shared.scheduleAlarm(alarm: alarm) { success, reason in
             if !success {
-                self.errorBinding?("알람 예약에 실패했습니다.")
+                // 실패 이유가 중복 처리인 경우 오류 메시지를 표시하지 않음
+                if case .duplicateProcessing = reason {
+                    print("알람이 이미 처리 중입니다 - 무시")
+                } else {
+                    // 실제 오류인 경우에만 오류 메시지 표시
+                    self.errorBinding?("알람 예약에 실패했습니다.")
+                }
             } else {
                 print("알람 예약 성공: \(alarm.title), 시간: \(alarm.time)")
             }

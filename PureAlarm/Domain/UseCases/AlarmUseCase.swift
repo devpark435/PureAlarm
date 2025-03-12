@@ -66,6 +66,6 @@ final class AlarmUseCase: AlarmUseCaseProtocol {
     
     // 알림 스케줄링
     private func scheduleAlarmNotification(_ alarm: Alarm) {
-        notificationManager.scheduleAlarm(alarm: alarm) { _ in }
+        notificationManager.scheduleAlarm(alarm: alarm) { _,_  in }
     }
 }

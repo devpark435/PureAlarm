@@ -39,6 +39,10 @@ final class AlarmDetailViewModel {
         return alarm.isActive
     }
     
+    var repeatInterval: Int {
+        return alarm.repeatInterval
+    }
+    
     // MARK: - Initialization
     init(alarm: Alarm? = nil) {
         self.isEditMode = alarm != nil
@@ -60,6 +64,7 @@ final class AlarmDetailViewModel {
                 sound: "Default",
                 vibration: true,
                 snooze: true,
+                repeatInterval: 0, // 기본값: 반복 없음
                 color: UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
             )
         }
@@ -80,6 +85,10 @@ final class AlarmDetailViewModel {
     
     func updateColor(_ color: UIColor) {
         alarm.color = color
+    }
+    
+    func updateRepeatInterval(_ interval: Int) {
+        alarm.repeatInterval = interval
     }
     
     func toggleActive() {
@@ -113,6 +122,12 @@ final class AlarmDetailViewModel {
         
         print("알람 저장 (현지 시간): \(localTimeString)")
         print("알람 저장 (UTC): \(alarm.time)")
+        
+        if alarm.repeatInterval > 0 {
+            print("알람 반복 간격: \(alarm.repeatInterval)분")
+        } else {
+            print("알람 반복: 없음")
+        }
         
         alarmSavedHandler?(alarm)
     }

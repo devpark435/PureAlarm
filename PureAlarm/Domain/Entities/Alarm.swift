@@ -17,6 +17,7 @@ struct Alarm: Codable {
     var sound: String
     var vibration: Bool
     var snooze: Bool
+    var repeatInterval: Int // 추가: 0은 반복 없음, 그 외는 분 단위 반복 간격
     private var colorData: ColorData
     
     var color: UIColor {
@@ -33,7 +34,7 @@ struct Alarm: Codable {
         }
     }
     
-    init(id: UUID = UUID(), title: String, time: Date, days: [WeekDay] = [], isActive: Bool = true, sound: String = "Default", vibration: Bool = true, snooze: Bool = true, color: UIColor = UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)) {
+    init(id: UUID = UUID(), title: String, time: Date, days: [WeekDay] = [], isActive: Bool = true, sound: String = "Default", vibration: Bool = true, snooze: Bool = true, repeatInterval: Int = 0, color: UIColor = UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)) {
         self.id = id
         self.title = title
         self.time = time
@@ -42,6 +43,7 @@ struct Alarm: Codable {
         self.sound = sound
         self.vibration = vibration
         self.snooze = snooze
+        self.repeatInterval = repeatInterval
         
         var red: CGFloat = 0
         var green: CGFloat = 0
