@@ -35,6 +35,7 @@
 		D60856EA2D71B92C00AA48B8 /* AlarmRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856E92D71B92C00AA48B8 /* AlarmRepository.swift */; };
 		D60856ED2D71B97700AA48B8 /* AlarmRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856EC2D71B97700AA48B8 /* AlarmRepositoryProtocol.swift */; };
 		D60856F12D74890A00AA48B8 /* LaunchScreenViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60856F02D74890A00AA48B8 /* LaunchScreenViewController.swift */; };
+		D60856F32D815A7700AA48B8 /* alarm_sound.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = D60856F22D815A7700AA48B8 /* alarm_sound.mp3 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +67,7 @@
 		D60856E92D71B92C00AA48B8 /* AlarmRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmRepository.swift; sourceTree = "<group>"; };
 		D60856EC2D71B97700AA48B8 /* AlarmRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmRepositoryProtocol.swift; sourceTree = "<group>"; };
 		D60856F02D74890A00AA48B8 /* LaunchScreenViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenViewController.swift; sourceTree = "<group>"; };
+		D60856F22D815A7700AA48B8 /* alarm_sound.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = alarm_sound.mp3; path = ../../../Downloads/alarm_sound.mp3; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,6 +102,7 @@
 		D608568F2D6F2D7D00AA48B8 /* PureAlarm */ = {
 			isa = PBXGroup;
 			children = (
+				D60856F22D815A7700AA48B8 /* alarm_sound.mp3 */,
 				D60856DE2D7028FB00AA48B8 /* Data */,
 				D60856B52D6F33FF00AA48B8 /* Common */,
 				D60856AE2D6F33A600AA48B8 /* Domain */,
@@ -397,6 +400,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D60856F32D815A7700AA48B8 /* alarm_sound.mp3 in Resources */,
 				D608569A2D6F2D8000AA48B8 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
