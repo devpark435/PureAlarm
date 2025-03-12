@@ -227,27 +227,9 @@ class AlarmRingViewController: UIViewController {
             print("알람 소리가 이미 재생 중입니다. 새로 시작하지 않습니다.")
             return
         }
-        // 알람 소리 재생 (예시: 기본 알람 소리)
-        guard let soundURL = Bundle.main.url(forResource: "alarm_sound", withExtension: "mp3") else {
-            // 번들에 소리 파일이 없는 경우 시스템 사운드 사용
-            let systemSoundID: SystemSoundID = 1005 // 시스템 알람 소리
-            AudioServicesPlaySystemSound(systemSoundID)
-            return
-        }
         
-        do {
-            // 오디오 세션 설정
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-            try AVAudioSession.sharedInstance().setActive(true)
-            
-            // 플레이어 생성 및 재생
-            player = try AVAudioPlayer(contentsOf: soundURL)
-            player?.numberOfLoops = -1 // 무한 반복
-            player?.volume = 1.0
-            player?.play()
-        } catch {
-            print("알람 소리 재생 오류: \(error.localizedDescription)")
-        }
+        // 복잡한 소리 재생 로직 대신 AlarmNotificationManager의 메서드 활용
+        AlarmNotificationManager.shared.playAlarmSound()
     }
     
     private func startVibration() {
@@ -258,26 +240,19 @@ class AlarmRingViewController: UIViewController {
     }
     
     private func stopAlarm() {
-        // 사운드 정지
-        player?.stop()
-        player = nil
-        
-        // 알림 매니저의 소리도 정지
-        AlarmNotificationManager.shared.stopAlarmSound()
-        
-        if alarmId != nil {
-            AlarmNotificationManager.shared.cancelAlarm(alarmId: alarmId)
-        }
-        
-        // 진동 정지
+        // 진동 정지 (이 부분은 여전히 필요)
         vibrationTimer?.invalidate()
         vibrationTimer = nil
         
-        // 오디오 세션 비활성화
-        do {
-            try AVAudioSession.sharedInstance().setActive(false)
-        } catch {
-            print("오디오 세션 비활성화 오류: \(error.localizedDescription)")
+        // 자체 소리 중지
+        player?.stop()
+        player = nil
+        
+        // AlarmNotificationManager를 통해 알람 중지
+        if alarmId != nil {
+            AlarmNotificationManager.shared.cancelAlarm(alarmId: alarmId)
+        } else if alarm != nil {
+            AlarmNotificationManager.shared.cancelAlarm(alarmId: alarm.id)
         }
     }
     
@@ -336,11 +311,6 @@ class AlarmRingViewController: UIViewController {
     private func dismissAlarm() {
         // 알람 종료
         stopAlarm()
-        
-        // 알람 취소 처리 추가
-        if alarmId != nil {
-            AlarmNotificationManager.shared.cancelAlarm(alarmId: alarmId)
-        }
         
         // 알람 창 닫기
         DispatchQueue.main.async {
