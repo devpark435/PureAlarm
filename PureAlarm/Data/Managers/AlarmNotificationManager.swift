@@ -37,6 +37,10 @@ class AlarmNotificationManager {
     // 스누즈 알람 여부를 확인하는 속성
     private var snoozeAlarmIds = Set<UUID>()
     
+    // 알람 소리 자동 중지 타이머
+    private var alarmSoundTimer: Timer?
+    private let defaultAlarmDuration: TimeInterval = 60 // 1분
+    
     private init() {}
     
     // MARK: - Public Methods
@@ -82,11 +86,14 @@ class AlarmNotificationManager {
             
             // 플레이어 생성 및 재생
             audioPlayer = try AVAudioPlayer(contentsOf: soundURL)
-            audioPlayer?.numberOfLoops = -1 // 무한 반복
+            audioPlayer?.numberOfLoops = 0
             audioPlayer?.volume = 1.0
             audioPlayer?.play()
             isPlayingAlarmSound = true
             print("알람 소리 재생 시작")
+            
+            startAlarmSoundTimer()
+            
         } catch {
             print("알람 소리 재생 오류: \(error.localizedDescription)")
             
@@ -96,6 +103,20 @@ class AlarmNotificationManager {
             
             // 시스템 사운드 반복 타이머 설정
             startSystemSoundRepeatTimer()
+        }
+    }
+    
+    // 알람 소리 자동 중지 타이머 시작
+    private func startAlarmSoundTimer() {
+        // 이전 타이머가 있다면 중지
+        alarmSoundTimer?.invalidate()
+        
+        // 새 타이머 시작
+        alarmSoundTimer = Timer.scheduledTimer(withTimeInterval: defaultAlarmDuration, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            
+            print("알람 소리 자동 중지 타이머 작동: \(self.defaultAlarmDuration)초 경과")
+            self.stopAlarmSound()
         }
     }
     
