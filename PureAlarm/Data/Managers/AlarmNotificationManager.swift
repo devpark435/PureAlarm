@@ -345,9 +345,28 @@ class AlarmNotificationManager {
     func cancelAlarm(alarmId: UUID) {
         print("알람 취소 요청: \(alarmId)")
         
-        // 알람 ID를 로그로 출력
-        print("알람 취소 - 알람 ID: \(alarmId)")
+        // 알람 정보 가져오기
+        guard let alarm = getAlarmById(alarmId) else {
+            print("알람 취소 - 알람 정보를 찾을 수 없음: \(alarmId)")
+            return
+        }
         
+        // 알람 소리 중지 및 자원 정리
+        cleanupAlarmResources(alarmId: alarmId)
+        
+        // 전달된 알림 제거
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [alarmId.uuidString])
+        
+        // 알람 유형에 따라 처리
+        if !alarm.days.isEmpty {
+            cancelRepeatingAlarmForToday(alarmId: alarmId)
+        } else {
+            cancelNonRepeatingAlarm(alarmId: alarmId)
+        }
+    }
+
+    // 알람 리소스 정리 (소리, 백그라운드 작업, 플래그 등)
+    private func cleanupAlarmResources(alarmId: UUID) {
         // 알람 소리 중지
         stopAlarmSound()
         
@@ -357,16 +376,49 @@ class AlarmNotificationManager {
         // 스누즈 알람 표시 제거
         snoozeAlarmIds.remove(alarmId)
         
-        // 명시적인 사용자 취소 동작 - 여기서만 중지 플래그 설정 (즉시 동기적으로)
+        // 중지 플래그 설정
         safelyExecuteOnMainThread {
             let now = Date()
             stoppedAlarmTimes[alarmId] = now
             print("알람 취소 - 중지 플래그 설정됨 (\(now))")
         }
+    }
+
+    // 오늘 요일에 해당하는 반복 알람만 취소
+    private func cancelRepeatingAlarmForToday(alarmId: UUID) {
+        let today = Calendar.current.component(.weekday, from: Date())
+        let todayIdentifier = "\(alarmId.uuidString)-\(today)"
         
-        // 전달된 알림 제거
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [alarmId.uuidString])
+        print("요일 반복 알람 취소 시도 - 알람 ID: \(alarmId), 오늘 요일: \(today)")
         
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            // 먼저 모든 관련 요청을 출력하여 디버깅
+            let relatedRequests = requests.filter { $0.identifier.contains(alarmId.uuidString) }
+            print("해당 알람 ID와 관련된 모든 요청: \(relatedRequests.count)개")
+            for request in relatedRequests {
+                print("요청 ID: \(request.identifier)")
+            }
+            
+            let identifiersToRemove = relatedRequests
+                .filter { request in
+                    // 오늘 요일 기본 알람이거나
+                    request.identifier == todayIdentifier ||
+                    // 알람 ID를 포함하는 모든 요청(스누즈, 반복 알람 포함)
+                    request.identifier.contains(alarmId.uuidString)
+                }
+                .map { $0.identifier }
+            
+            if !identifiersToRemove.isEmpty {
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
+                print("오늘 관련 알람 \(identifiersToRemove.count)개 제거: \(identifiersToRemove)")
+            } else {
+                print("오늘 요일에 제거할 알람 없음")
+            }
+        }
+    }
+
+    // 일회성 알람 취소 (모든 관련 알림 제거)
+    private func cancelNonRepeatingAlarm(alarmId: UUID) {
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
             let identifiersToRemove = requests
                 .filter { $0.identifier.contains(alarmId.uuidString) }
@@ -374,9 +426,9 @@ class AlarmNotificationManager {
             
             if !identifiersToRemove.isEmpty {
                 UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
-                print("알람 취소 - \(identifiersToRemove.count)개 알림 제거됨")
+                print("일회성 알람 \(identifiersToRemove.count)개 제거")
             } else {
-                print("알람 취소 - 제거할 알림 없음")
+                print("제거할 알람 없음")
             }
         }
     }
