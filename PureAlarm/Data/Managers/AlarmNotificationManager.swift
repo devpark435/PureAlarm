@@ -20,6 +20,8 @@ enum ScheduleFailureReason {
 class AlarmNotificationManager {
     static let shared = AlarmNotificationManager()
     
+    // MARK: - Properties
+    
     // 알람 관리를 위한 추가 속성
     private var processingAlarms = Set<String>()
     private let processingQueue = DispatchQueue(label: "com.purealarm.notification.queue")
@@ -41,11 +43,14 @@ class AlarmNotificationManager {
     private var alarmSoundTimer: Timer?
     private let defaultAlarmDuration: TimeInterval = 60 // 1분
     
+    // 반복 알람 중지를 위한 플래그 관리 - 시간 기준 설정으로 변경
+    private var stoppedAlarmTimes = [UUID: Date]()
+    
     private init() {}
     
-    // MARK: - Public Methods
+    // MARK: - Authorization and Setup
     
-    /// 알림 권한 요청
+    // 알림 권한 요청
     func requestAuthorization(completion: @escaping (Bool) -> Void) {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
@@ -57,7 +62,35 @@ class AlarmNotificationManager {
         }
     }
     
-    /// 알람 소리 재생
+    // 간단한 테스트 알람 생성 (5초 후에 알림)
+    func scheduleTestAlarm() {
+        print("테스트 알람 예약 시작...")
+        
+        // 현재 시간 문자열 미리 생성
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        let timeString = formatter.string(from: Date())
+        
+        let content = UNMutableNotificationContent()
+        content.title = "테스트 알람"
+        content.body = "이것은 테스트 알람입니다. 시간: " + timeString
+        content.sound = UNNotificationSound.default
+        
+        // 5초 후에 알림 트리거
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+        let request = UNNotificationRequest(identifier: "test-alarm-" + UUID().uuidString, content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("테스트 알람 등록 오류: \(error.localizedDescription)")
+            } else {
+                print("테스트 알람 성공적으로 등록됨 - 5초 후 알림 예정")
+            }
+        }
+    }
+    
+    // MARK: - Sound Management
+    
     // 알람 소리 재생
     func playAlarmSound() {
         guard !isPlayingAlarmSound else {
@@ -70,7 +103,7 @@ class AlarmNotificationManager {
             print("알람 소리 파일을 찾을 수 없습니다. 시스템 사운드를 사용합니다.")
             
             // 번들에 소리 파일이 없는 경우 시스템 사운드 사용
-            let systemSoundID: SystemSoundID = 1005 // 시스템 알람 소리
+            let systemSoundID: SystemSoundID = 1005
             AudioServicesPlaySystemSound(systemSoundID)
             
             // 시스템 사운드는 한 번만 재생되므로 반복 타이머 설정
@@ -146,7 +179,7 @@ class AlarmNotificationManager {
         systemSoundTimer = nil
     }
     
-    // 알람 소리 중지 (수정)
+    // 알람 소리 중지
     func stopAlarmSound() {
         guard isPlayingAlarmSound else {
             return
@@ -205,59 +238,9 @@ class AlarmNotificationManager {
         }
     }
     
-    // 백그라운드 작업 시작
-    private func beginBackgroundTask() {
-        // 이미 실행 중인 백그라운드 작업이 있다면 종료
-        if backgroundTaskID != .invalid {
-            UIApplication.shared.endBackgroundTask(backgroundTaskID)
-            backgroundTaskID = .invalid
-        }
-        
-        // 새 백그라운드 작업 시작
-        backgroundTaskID = UIApplication.shared.beginBackgroundTask { [weak self] in
-            guard let self = self else { return }
-            // 시간이 만료되면 작업 종료
-            UIApplication.shared.endBackgroundTask(self.backgroundTaskID)
-            self.backgroundTaskID = .invalid
-        }
-    }
+    // MARK: - Alarm Scheduling
     
-    // 백그라운드 작업 종료
-    private func endBackgroundTask() {
-        if backgroundTaskID != .invalid {
-            UIApplication.shared.endBackgroundTask(backgroundTaskID)
-            backgroundTaskID = .invalid
-        }
-    }
-    
-    /// 간단한 테스트 알람 생성 (5초 후에 알림)
-    func scheduleTestAlarm() {
-        print("테스트 알람 예약 시작...")
-        
-        // 현재 시간 문자열 미리 생성
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        let timeString = formatter.string(from: Date())
-        
-        let content = UNMutableNotificationContent()
-        content.title = "테스트 알람"
-        content.body = "이것은 테스트 알람입니다. 시간: " + timeString
-        content.sound = UNNotificationSound.default
-        
-        // 5초 후에 알림 트리거
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
-        let request = UNNotificationRequest(identifier: "test-alarm-" + UUID().uuidString, content: content, trigger: trigger)
-        
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("테스트 알람 등록 오류: \(error.localizedDescription)")
-            } else {
-                print("테스트 알람 성공적으로 등록됨 - 5초 후 알림 예정")
-            }
-        }
-    }
-    
-    /// 알람 예약 - 중복 방지 및 실패 이유 반환 로직 추가
+    // 알람 예약 - 중복 방지 및 실패 이유 반환 로직 추가
     func scheduleAlarm(alarm: Alarm, completion: @escaping (Bool, ScheduleFailureReason?) -> Void) {
         // 알람이 활성화되어 있지 않으면 예약하지 않음
         guard alarm.isActive else {
@@ -316,6 +299,211 @@ class AlarmNotificationManager {
         }
     }
     
+    // 새로운 알람 배치 생성 메서드 - 중복 방지 로직 추가
+    private func createNewAlarmBatch(for alarm: Alarm, completion: @escaping (Bool) -> Void) {
+        let alarmDate = getValidAlarmTime(for: alarm)
+        print("알람 시간 계산됨: \(formatTime(date: alarmDate))")
+        
+        // 먼저 현재 보류 중인 모든 알림 확인
+        UNUserNotificationCenter.current().getPendingNotificationRequests { existingRequests in
+            // 같은 알람 ID에 대한 알림이 있는지 확인
+            let existingAlarmRequests = existingRequests.filter {
+                $0.identifier.contains(alarm.id.uuidString)
+            }
+            
+            if !existingAlarmRequests.isEmpty {
+                print("⚠️ 경고: 동일한 알람 ID에 대한 알림이 \(existingAlarmRequests.count)개 이미 존재합니다. 모두 취소합니다.")
+                UNUserNotificationCenter.current().removePendingNotificationRequests(
+                    withIdentifiers: existingAlarmRequests.map { $0.identifier }
+                )
+            }
+            
+            // 이제 새 알림 추가 진행
+            self.scheduleActualNotifications(for: alarm, at: alarmDate, completion: completion)
+        }
+    }
+    
+    // 실제 알림 등록 로직 분리
+    private func scheduleActualNotifications(for alarm: Alarm, at alarmDate: Date, completion: @escaping (Bool) -> Void) {
+        // 알림 생성 (첫 알람 포함 총 6개)
+        let alarmCount = 6
+        
+        // 반복 간격 (분) 로그 출력
+        if alarm.repeatInterval > 0 {
+            print("알람 반복 간격 설정됨: \(alarm.repeatInterval)분")
+        }
+        
+        // 알람 상태 추적용 카운터
+        var successCount = 0
+        var failureCount = 0
+        let group = DispatchGroup()
+        
+        // 고유한 배치 ID 생성 (모든 알림에 공통으로 사용)
+        let batchId = UUID().uuidString
+        
+        // 알람 시간에 소리 트리거 설정 (첫 알람이 울릴 때)
+        scheduleSoundTrigger(for: alarmDate)
+        
+        // 먼저 기존의 요청들을 확인
+        UNUserNotificationCenter.current().getPendingNotificationRequests { existingRequests in
+            for i in 0..<alarmCount {
+                group.enter()
+                
+                // 알림 내용 설정
+                let content = UNMutableNotificationContent()
+                
+                if i == 0 {
+                    // 첫 번째 알람
+                    content.title = "⏰ 알람 시간"
+                    content.body = "알람이 울렸습니다!"
+                } else {
+                    // 후속 알람
+                    content.title = "\(alarm.title.isEmpty ? "알람" : alarm.title) (반복 \(i))"
+                    content.body = "놓친 알람이 있습니다!"
+                }
+                
+                // 공통 설정
+                content.sound = UNNotificationSound.default
+                content.categoryIdentifier = "ALARM_CATEGORY"
+                content.userInfo = [
+                    "alarm_id": alarm.id.uuidString,
+                    "sequence": i,
+                    "timestamp": Date().timeIntervalSince1970,
+                    "batch_id": batchId, // 배치 ID 추가
+                    "repeat_interval": alarm.repeatInterval // 반복 간격 추가
+                ]
+                
+                // 알람 시간 계산
+                var triggerDate = alarmDate
+                
+                if i > 0 {
+                    // 기본 동작은 항상 2초 간격 (초기 알림들)
+                    triggerDate = Calendar.current.date(byAdding: .second, value: i * 2, to: alarmDate) ?? alarmDate
+                }
+                
+                // 트리거 생성
+                let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: triggerDate)
+                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                
+                // 고유 식별자 생성 (시퀀스와 배치 ID 모두 포함)
+                let requestId = i == 0
+                ? "\(alarm.id.uuidString)-main-\(i)-\(batchId)"
+                : "\(alarm.id.uuidString)-follow-\(i)-\(batchId)"
+                
+                // 정확히 같은 식별자의 알림이 있는지 확인
+                let duplicateRequests = existingRequests.filter { $0.identifier == requestId }
+                if !duplicateRequests.isEmpty {
+                    print("⚠️ 중복 경고: 식별자 \(requestId)와 동일한 알림이 이미 존재합니다. 스킵합니다.")
+                    group.leave()
+                    continue
+                }
+                
+                let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
+                
+                // 알림 등록
+                UNUserNotificationCenter.current().add(request) { error in
+                    defer { group.leave() }
+                    
+                    if let error = error {
+                        print("알림 \(i) 등록 오류: \(error.localizedDescription)")
+                        failureCount += 1
+                    } else {
+                        print("알림 \(i) 등록 성공: \(self.formatTime(date: triggerDate)) (ID: \(requestId))")
+                        successCount += 1
+                        
+                        // 첫 번째 알람에 대해서만 반복 타이머 설정
+                        if i == 0 && alarm.repeatInterval > 0 {
+                            print("첫 번째 알람에 대한 반복 타이머 설정 - \(alarm.repeatInterval)분 간격")
+                            
+                            // 안전하게 메인 스레드에서 실행
+                            DispatchQueue.main.async {
+                                self.scheduleRepetitionTimer(for: alarm, initialDelay: 30) // 초기 알람 후 30초 대기
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 모든 알림 등록 완료 후 결과 반환
+            group.notify(queue: .main) {
+                let success = failureCount == 0 && successCount > 0
+                print("알람 등록 완료 - 성공: \(successCount), 실패: \(failureCount)")
+                completion(success)
+            }
+        }
+    }
+    
+    // 주간 반복 알람 예약
+    private func scheduleRepeatingAlarm(alarm: Alarm, completion: @escaping (Bool) -> Void) {
+        var allSuccess = true
+        let group = DispatchGroup()
+        
+        // 각 요일별로 알람 설정
+        for day in alarm.days {
+            group.enter()
+            
+            let content = UNMutableNotificationContent()
+            content.title = alarm.title.isEmpty ? "알람" : alarm.title
+            content.body = "반복 알람이 울렸습니다!"
+            content.sound = UNNotificationSound.default
+            content.userInfo = ["alarm_id": alarm.id.uuidString]
+            content.categoryIdentifier = "ALARM_CATEGORY"
+            
+            // 요일별 알람 시간 컴포넌트 생성
+            var components = Calendar.current.dateComponents([.hour, .minute], from: alarm.time)
+            components.weekday = day.rawValue
+            
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+            
+            // 요일별 고유 식별자 생성
+            let requestId = "\(alarm.id.uuidString)-\(day.rawValue)"
+            
+            // 알림 요청 생성
+            let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
+            
+            // 알림 등록
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("반복 알람 등록 오류 (\(day.shortName)): \(error.localizedDescription)")
+                    allSuccess = false
+                } else {
+                    print("반복 알람 등록 성공 (\(day.shortName)): \(components)")
+                }
+                group.leave()
+            }
+        }
+        
+        group.notify(queue: .main) {
+            completion(allSuccess)
+        }
+    }
+    
+    // MARK: - Alarm Cancellation
+    
+    // 알람 취소 - 중지 플래그 설정 및 알림 제거
+    func cancelAlarm(alarmId: UUID) {
+        print("알람 취소 요청: \(alarmId)")
+        
+        // 알람 정보 가져오기
+        guard let alarm = getAlarmById(alarmId) else {
+            print("알람 취소 - 알람 정보를 찾을 수 없음: \(alarmId)")
+            return
+        }
+        
+        // 알람 소리 중지 및 자원 정리
+        cleanupAlarmResources(alarmId: alarmId)
+        
+        // 전달된 알림 제거
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [alarmId.uuidString])
+        
+        // 알람 유형에 따라 처리
+        if !alarm.days.isEmpty {
+            cancelRepeatingAlarmForToday(alarmId: alarmId)
+        } else {
+            cancelNonRepeatingAlarm(alarmId: alarmId)
+        }
+    }
+    
     // 알람 알림만 취소 (중지 플래그 설정 없음) - 알람 재설정시 사용
     func cancelAlarmNotifications(alarmId: UUID, completion: @escaping () -> Void) {
         print("알람 알림만 취소 시작 (플래그 설정 없음): \(alarmId)")
@@ -341,30 +529,6 @@ class AlarmNotificationManager {
         }
     }
     
-    /// 알람 취소 - 중지 플래그 설정 및 알림 제거
-    func cancelAlarm(alarmId: UUID) {
-        print("알람 취소 요청: \(alarmId)")
-        
-        // 알람 정보 가져오기
-        guard let alarm = getAlarmById(alarmId) else {
-            print("알람 취소 - 알람 정보를 찾을 수 없음: \(alarmId)")
-            return
-        }
-        
-        // 알람 소리 중지 및 자원 정리
-        cleanupAlarmResources(alarmId: alarmId)
-        
-        // 전달된 알림 제거
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [alarmId.uuidString])
-        
-        // 알람 유형에 따라 처리
-        if !alarm.days.isEmpty {
-            cancelRepeatingAlarmForToday(alarmId: alarmId)
-        } else {
-            cancelNonRepeatingAlarm(alarmId: alarmId)
-        }
-    }
-
     // 알람 리소스 정리 (소리, 백그라운드 작업, 플래그 등)
     private func cleanupAlarmResources(alarmId: UUID) {
         // 알람 소리 중지
@@ -433,52 +597,7 @@ class AlarmNotificationManager {
         }
     }
     
-    // 안전하게 메인 스레드에서 실행하는 헬퍼 메서드
-    private func safelyExecuteOnMainThread(_ action: () -> Void) {
-        if Thread.isMainThread {
-            // 이미 메인 스레드라면 직접 실행
-            action()
-        } else {
-            // 메인 스레드가 아니라면 sync 호출
-            DispatchQueue.main.sync(execute: action)
-        }
-    }
-    
-    // 반복 알람 중지를 위한 플래그 관리 - 시간 기준 설정으로 변경
-    private var stoppedAlarmTimes = [UUID: Date]()
-    
-    // 외부에서 접근 가능하도록 public으로 변경
-    func stopRepeatingAlarms(for alarmId: UUID) {
-        safelyExecuteOnMainThread {
-            let now = Date()
-            self.stoppedAlarmTimes[alarmId] = now
-            print("알람 ID \(alarmId)에 대한 반복 중지 플래그 설정됨 (\(now))")
-        }
-    }
-    
-    func resetStopFlag(for alarmId: UUID) {
-        safelyExecuteOnMainThread {
-            if let oldTime = self.stoppedAlarmTimes[alarmId] {
-                self.stoppedAlarmTimes.removeValue(forKey: alarmId)
-                print("알람 ID \(alarmId)에 대한 반복 중지 플래그 초기화됨 (이전 설정 시간: \(oldTime))")
-            }
-        }
-    }
-    
-    func isAlarmStopped(_ alarmId: UUID) -> Bool {
-        // 상태 체크 시작 로그
-        print("알람 상태 체크: \(alarmId)")
-        
-        // 단순화된 로직: 중지 플래그가 있으면 중지된 것으로 간주
-        if let stopTime = stoppedAlarmTimes[alarmId] {
-            print("알람 \(alarmId)는 중지됨 (시간: \(stopTime))")
-            return true
-        }
-        print("알람 \(alarmId)는 활성 상태")
-        return false
-    }
-    
-    /// 모든 알람 취소
+    // 모든 알람 취소
     func cancelAllAlarms() {
         print("모든 알람 취소 요청")
         
@@ -492,6 +611,8 @@ class AlarmNotificationManager {
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
     
+    // MARK: - Alarm Repetition and Snooze
+    
     // 스누즈 알람인지 확인하는 함수 추가
     private func isSnoozeAlarm(_ alarmId: UUID) -> Bool {
         let result = snoozeAlarmIds.contains(alarmId)
@@ -499,7 +620,7 @@ class AlarmNotificationManager {
         return result
     }
     
-    /// 스누즈 알람 설정 - 반복 간격은 알람 모델의 repeatInterval 사용
+    // 스누즈 알람 설정 - 반복 간격은 알람 모델의 repeatInterval 사용
     func scheduleSnoozeAlarm(for alarmId: UUID, minutes: Int) {
         print("==== 스누즈 알람 설정 시작: \(alarmId), \(minutes)분 ====")
         
@@ -580,8 +701,8 @@ class AlarmNotificationManager {
             }
         }
     }
-
-    // 특정 시간 후에 알람 반복 체크를 위한 알림 예약 (새로 추가)
+    
+    // 특정 시간 후에 알람 반복 체크를 위한 알림 예약
     private func scheduleCheckNotification(for alarm: Alarm, delay: TimeInterval) {
         print("### 알람 체크 알림 예약 시작 - 알람 ID: \(alarm.id), 딜레이: \(delay)초")
         
@@ -742,6 +863,38 @@ class AlarmNotificationManager {
         }
     }
     
+    // MARK: - Alarm Status Management
+    
+    func stopRepeatingAlarms(for alarmId: UUID) {
+        safelyExecuteOnMainThread {
+            let now = Date()
+            self.stoppedAlarmTimes[alarmId] = now
+            print("알람 ID \(alarmId)에 대한 반복 중지 플래그 설정됨 (\(now))")
+        }
+    }
+    
+    func resetStopFlag(for alarmId: UUID) {
+        safelyExecuteOnMainThread {
+            if let oldTime = self.stoppedAlarmTimes[alarmId] {
+                self.stoppedAlarmTimes.removeValue(forKey: alarmId)
+                print("알람 ID \(alarmId)에 대한 반복 중지 플래그 초기화됨 (이전 설정 시간: \(oldTime))")
+            }
+        }
+    }
+    
+    func isAlarmStopped(_ alarmId: UUID) -> Bool {
+        // 상태 체크 시작 로그
+        print("알람 상태 체크: \(alarmId)")
+        
+        // 단순화된 로직: 중지 플래그가 있으면 중지된 것으로 간주
+        if let stopTime = stoppedAlarmTimes[alarmId] {
+            print("알람 \(alarmId)는 중지됨 (시간: \(stopTime))")
+            return true
+        }
+        print("알람 \(alarmId)는 활성 상태")
+        return false
+    }
+    
     // 알람 상태 확인 (아직 활성 상태인지)
     private func checkAlarmStatus(alarmId: UUID, completion: @escaping (Bool) -> Void) {
         print("알람 상태 확인 중: \(alarmId)")
@@ -758,6 +911,35 @@ class AlarmNotificationManager {
         completion(true)
     }
     
+    // MARK: - Background Task Management
+    
+    // 백그라운드 작업 시작
+    private func beginBackgroundTask() {
+        // 이미 실행 중인 백그라운드 작업이 있다면 종료
+        if backgroundTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+        }
+        
+        // 새 백그라운드 작업 시작
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask { [weak self] in
+            guard let self = self else { return }
+            // 시간이 만료되면 작업 종료
+            UIApplication.shared.endBackgroundTask(self.backgroundTaskID)
+            self.backgroundTaskID = .invalid
+        }
+    }
+    
+    // 백그라운드 작업 종료
+    private func endBackgroundTask() {
+        if backgroundTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+        }
+    }
+    
+    // MARK: - Utilities and Helpers
+    
     // 알람 ID로 알람 정보 가져오기
     internal func getAlarmById(_ alarmId: UUID) -> Alarm? {
         // 실제 저장소에서 알람 정보 가져오기
@@ -771,188 +953,18 @@ class AlarmNotificationManager {
         return nil
     }
     
-    // MARK: - Private Methods
-    
-    // 새로운 알람 배치 생성 메서드 - 중복 방지 로직 추가
-    private func createNewAlarmBatch(for alarm: Alarm, completion: @escaping (Bool) -> Void) {
-        let alarmDate = getValidAlarmTime(for: alarm)
-        print("알람 시간 계산됨: \(formatTime(date: alarmDate))")
-        
-        // 먼저 현재 보류 중인 모든 알림 확인
-        UNUserNotificationCenter.current().getPendingNotificationRequests { existingRequests in
-            // 같은 알람 ID에 대한 알림이 있는지 확인
-            let existingAlarmRequests = existingRequests.filter {
-                $0.identifier.contains(alarm.id.uuidString)
-            }
-            
-            if !existingAlarmRequests.isEmpty {
-                print("⚠️ 경고: 동일한 알람 ID에 대한 알림이 \(existingAlarmRequests.count)개 이미 존재합니다. 모두 취소합니다.")
-                UNUserNotificationCenter.current().removePendingNotificationRequests(
-                    withIdentifiers: existingAlarmRequests.map { $0.identifier }
-                )
-            }
-            
-            // 이제 새 알림 추가 진행
-            self.scheduleActualNotifications(for: alarm, at: alarmDate, completion: completion)
+    // 안전하게 메인 스레드에서 실행하는 헬퍼 메서드
+    private func safelyExecuteOnMainThread(_ action: () -> Void) {
+        if Thread.isMainThread {
+            // 이미 메인 스레드라면 직접 실행
+            action()
+        } else {
+            // 메인 스레드가 아니라면 sync 호출
+            DispatchQueue.main.sync(execute: action)
         }
     }
     
-    // 실제 알림 등록 로직 분리
-    private func scheduleActualNotifications(for alarm: Alarm, at alarmDate: Date, completion: @escaping (Bool) -> Void) {
-        // 알림 생성 (첫 알람 포함 총 6개)
-        let alarmCount = 6
-        
-        // 반복 간격 (분) 로그 출력
-        if alarm.repeatInterval > 0 {
-            print("알람 반복 간격 설정됨: \(alarm.repeatInterval)분")
-        }
-        
-        // 알람 상태 추적용 카운터
-        var successCount = 0
-        var failureCount = 0
-        let group = DispatchGroup()
-        
-        // 고유한 배치 ID 생성 (모든 알림에 공통으로 사용)
-        let batchId = UUID().uuidString
-        
-        // 알람 시간에 소리 트리거 설정 (첫 알람이 울릴 때)
-        scheduleSoundTrigger(for: alarmDate)
-        
-        // 먼저 기존의 요청들을 확인
-        UNUserNotificationCenter.current().getPendingNotificationRequests { existingRequests in
-            for i in 0..<alarmCount {
-                group.enter()
-                
-                // 알림 내용 설정
-                let content = UNMutableNotificationContent()
-                
-                if i == 0 {
-                    // 첫 번째 알람
-                    content.title = "⏰ 알람 시간"
-                    content.body = "알람이 울렸습니다!"
-                } else {
-                    // 후속 알람
-                    content.title = "\(alarm.title.isEmpty ? "알람" : alarm.title) (반복 \(i))"
-                    content.body = "놓친 알람이 있습니다!"
-                }
-                
-                // 공통 설정
-                content.sound = UNNotificationSound.default
-                content.categoryIdentifier = "ALARM_CATEGORY"
-                content.userInfo = [
-                    "alarm_id": alarm.id.uuidString,
-                    "sequence": i,
-                    "timestamp": Date().timeIntervalSince1970,
-                    "batch_id": batchId, // 배치 ID 추가
-                    "repeat_interval": alarm.repeatInterval // 반복 간격 추가
-                ]
-                
-                // 알람 시간 계산
-                var triggerDate = alarmDate
-                
-                if i > 0 {
-                    // 기본 동작은 항상 2초 간격 (초기 알림들)
-                    triggerDate = Calendar.current.date(byAdding: .second, value: i * 2, to: alarmDate) ?? alarmDate
-                }
-                
-                // 트리거 생성
-                let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: triggerDate)
-                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-                
-                // 고유 식별자 생성 (시퀀스와 배치 ID 모두 포함)
-                let requestId = i == 0
-                ? "\(alarm.id.uuidString)-main-\(i)-\(batchId)"
-                : "\(alarm.id.uuidString)-follow-\(i)-\(batchId)"
-                
-                // 정확히 같은 식별자의 알림이 있는지 확인
-                let duplicateRequests = existingRequests.filter { $0.identifier == requestId }
-                if !duplicateRequests.isEmpty {
-                    print("⚠️ 중복 경고: 식별자 \(requestId)와 동일한 알림이 이미 존재합니다. 스킵합니다.")
-                    group.leave()
-                    continue
-                }
-                
-                let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
-                
-                // 알림 등록
-                UNUserNotificationCenter.current().add(request) { error in
-                    defer { group.leave() }
-                    
-                    if let error = error {
-                        print("알림 \(i) 등록 오류: \(error.localizedDescription)")
-                        failureCount += 1
-                    } else {
-                        print("알림 \(i) 등록 성공: \(self.formatTime(date: triggerDate)) (ID: \(requestId))")
-                        successCount += 1
-                        
-                        // 첫 번째 알람에 대해서만 반복 타이머 설정
-                        if i == 0 && alarm.repeatInterval > 0 {
-                            print("첫 번째 알람에 대한 반복 타이머 설정 - \(alarm.repeatInterval)분 간격")
-                            
-                            // 안전하게 메인 스레드에서 실행
-                            DispatchQueue.main.async {
-                                self.scheduleRepetitionTimer(for: alarm, initialDelay: 30) // 초기 알람 후 30초 대기
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // 모든 알림 등록 완료 후 결과 반환
-            group.notify(queue: .main) {
-                let success = failureCount == 0 && successCount > 0
-                print("알람 등록 완료 - 성공: \(successCount), 실패: \(failureCount)")
-                completion(success)
-            }
-        }
-    }
-    
-    /// 주간 반복 알람 예약
-    private func scheduleRepeatingAlarm(alarm: Alarm, completion: @escaping (Bool) -> Void) {
-        var allSuccess = true
-        let group = DispatchGroup()
-        
-        // 각 요일별로 알람 설정
-        for day in alarm.days {
-            group.enter()
-            
-            let content = UNMutableNotificationContent()
-            content.title = alarm.title.isEmpty ? "알람" : alarm.title
-            content.body = "반복 알람이 울렸습니다!"
-            content.sound = UNNotificationSound.default
-            content.userInfo = ["alarm_id": alarm.id.uuidString]
-            content.categoryIdentifier = "ALARM_CATEGORY"
-            
-            // 요일별 알람 시간 컴포넌트 생성
-            var components = Calendar.current.dateComponents([.hour, .minute], from: alarm.time)
-            components.weekday = day.rawValue
-            
-            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-            
-            // 요일별 고유 식별자 생성
-            let requestId = "\(alarm.id.uuidString)-\(day.rawValue)"
-            
-            // 알림 요청 생성
-            let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
-            
-            // 알림 등록
-            UNUserNotificationCenter.current().add(request) { error in
-                if let error = error {
-                    print("반복 알람 등록 오류 (\(day.shortName)): \(error.localizedDescription)")
-                    allSuccess = false
-                } else {
-                    print("반복 알람 등록 성공 (\(day.shortName)): \(components)")
-                }
-                group.leave()
-            }
-        }
-        
-        group.notify(queue: .main) {
-            completion(allSuccess)
-        }
-    }
-    
-    /// 유효한 알람 시간 가져오기 (항상 현재 이후의 시간)
+    // 유효한 알람 시간 가져오기 (항상 현재 이후의 시간)
     private func getValidAlarmTime(for alarm: Alarm) -> Date {
         let calendar = Calendar.current
         var alarmDate = alarm.time
@@ -973,7 +985,7 @@ class AlarmNotificationManager {
         return alarmDate
     }
     
-    /// 날짜와 시간 결합하기
+    // 날짜와 시간 결합하기
     private func combineDateAndTime(_ date: Date, _ time: Date) -> Date {
         let calendar = Calendar.current
         
@@ -991,7 +1003,7 @@ class AlarmNotificationManager {
         return calendar.date(from: combinedComponents) ?? date
     }
     
-    /// 시간 포맷팅
+    // 시간 포맷팅
     private func formatTime(date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
@@ -999,7 +1011,7 @@ class AlarmNotificationManager {
     }
 }
 
-// MARK: - ScheduleFailureReason에 대한 설명 추가
+// MARK: - ScheduleFailureReason Extension
 extension ScheduleFailureReason {
     var description: String {
         switch self {
@@ -1013,7 +1025,7 @@ extension ScheduleFailureReason {
     }
 }
 
-// MARK: - 알람 알림 핸들러
+// MARK: - 알람 알림 핸들러 (AppDelegate 확장)
 extension AppDelegate: UNUserNotificationCenterDelegate {
     
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -1185,7 +1197,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     }
 }
 
-// MARK: - AppDelegate 설정
+// MARK: - AppDelegate 설정 (누락된 부분)
 extension AppDelegate {
     func setupNotifications() {
         // 알림 대리자 설정
